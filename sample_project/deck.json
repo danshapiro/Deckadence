@@ -1,0 +1,15 @@
+{
+  "slides": [
+    {
+      "image": "slides/slide1.png",
+      "transition": "transitions/slide1_to_slide2.mp4"
+    },
+    {
+      "image": "slides/slide2.png",
+      "transition": "transitions/slide2_to_slide3.mp4"
+    },
+    {
+      "image": "slides/slide3.png"
+    }
+  ]
+}
