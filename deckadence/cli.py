@@ -57,6 +57,11 @@ def _configure_logging(verbose: bool) -> None:
         level=level,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
+    # Suppress noisy HTTP and LiteLLM debug logs
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+    logging.getLogger("litellm").setLevel(logging.WARNING)
 
 
 def _get_project_root(project_path: Optional[Path]) -> tuple[Path, Optional[Path]]:
@@ -225,47 +230,94 @@ def export(
 # ============================================================================
 
 
+async def _generate_prompts_from_topic(
+    topic: str,
+    slide_count: int,
+    include_transitions: bool,
+    cfg: AppConfig,
+) -> tuple[List[str], List[str]]:
+    """Use LLM to generate slide and transition prompts from a topic."""
+    from litellm import acompletion
+    
+    system_prompt = """You are an expert presentation designer. Given a topic, create detailed visual prompts for slide images and transition animations.
+
+For each slide, describe:
+- The visual composition and layout
+- Specific imagery, colors, and style
+- Mood and atmosphere
+- Any text overlays (keep minimal)
+
+Make each slide visually distinct but maintain a cohesive style throughout.
+For transitions, describe the motion and transformation between slides.
+
+Respond in valid JSON format only, no markdown:
+{
+  "slide_prompts": ["detailed prompt for slide 1", "detailed prompt for slide 2", ...],
+  "transition_prompts": ["transition from slide 1 to 2", ...]
+}"""
+
+    user_prompt = f"""Create a {slide_count}-slide presentation on: "{topic}"
+
+Generate {slide_count} detailed slide image prompts and {slide_count - 1 if include_transitions else 0} transition prompts.
+Each slide prompt should be a complete, detailed description for AI image generation.
+Make it visually striking and cinematic."""
+
+    response = await acompletion(
+        model=cfg.lite_llm_model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        api_key=cfg.gemini_api_key,
+    )
+    
+    content = response["choices"][0]["message"]["content"]
+    # Parse JSON from response (handle potential markdown wrapping)
+    if "```json" in content:
+        content = content.split("```json")[1].split("```")[0]
+    elif "```" in content:
+        content = content.split("```")[1].split("```")[0]
+    
+    data = json.loads(content.strip())
+    return data.get("slide_prompts", []), data.get("transition_prompts", [])
+
+
 @app.command()
 def generate(
-    project: str = typer.Argument(
-        ...,
-        help="Path to project directory or deck.json file.",
+    topic: Optional[str] = typer.Option(
+        None,
+        "--topic", "-t",
+        help="Topic/prompt for the deck. LLM will generate slide and transition prompts.",
     ),
+    project: Optional[str] = typer.Option(
+        None,
+        "--project", "-P",
+        help="Path to existing project directory (optional with --topic).",
+    ),
+    slides: int = typer.Option(5, "--slides", "-n", help="Number of slides (used with --topic)."),
     prompts_file: Optional[str] = typer.Option(
         None,
         "--prompts", "-p",
         help="JSON file with slide_prompts and transition_prompts arrays.",
     ),
+    output_dir: str = typer.Option("output", "--output", "-o", help="Output directory for generated project."),
     no_transitions: bool = typer.Option(False, "--no-transitions", help="Skip generating transition videos."),
     config_path: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging."),
 ) -> None:
     """Generate slide images and transition videos with AI.
     
-    Uses Gemini for image generation and Kling 2.5 for transitions.
-    Provide prompts via a JSON file or use auto-generated prompts.
+    Two modes:
     
-    Example prompts file:
+    1. Topic mode (--topic): Provide a topic and let the LLM design the presentation.
+       Example: deckadence generate --topic "AI disrupting retail" --slides 3
     
-        {
-          "slide_prompts": ["Prompt for slide 1", "Prompt for slide 2"],
-          "transition_prompts": ["Morph slide 1 into slide 2"]
-        }
+    2. Prompts mode (--prompts): Provide explicit prompts via JSON file.
+       Example: deckadence generate --project ./mydeck --prompts prompts.json
     """
     _configure_logging(verbose)
     
     from .services import generate_deck_media, ExportProgress
-
-    project_path = Path(project)
-    if not project_path.exists():
-        rprint(f"[red]Error:[/] Path does not exist: {project}")
-        raise typer.Exit(1)
-
-    project_root, deck_path = _get_project_root(project_path)
-    
-    if not deck_path or not deck_path.exists():
-        rprint(f"[red]Error:[/] No deck.json found in {project_root}")
-        raise typer.Exit(1)
 
     cfg_path = config_path or _DEFAULT_CONFIG
     config_manager = ConfigManager(cfg_path)
@@ -283,47 +335,104 @@ def generate(
         rprint("Or use [cyan]--no-transitions[/] to skip transition generation.")
         raise typer.Exit(1)
 
-    try:
-        deck = _load_deck_sync(project_root, deck_path)
-    except Exception as e:
-        rprint(f"[red]Error loading deck:[/] {e}")
-        raise typer.Exit(1)
-
-    slide_count = deck.slide_count()
-    
-    # Load or generate prompts
-    prompts_path = Path(prompts_file) if prompts_file else None
-    if prompts_path and prompts_path.exists():
-        with open(prompts_path) as f:
-            prompts_data = json.load(f)
-        slide_prompts = prompts_data.get("slide_prompts", [])
-        transition_prompts = prompts_data.get("transition_prompts", [])
-    else:
-        # Auto-generate placeholder prompts
-        slide_prompts = [f"Professional, visually striking slide {i+1}" for i in range(slide_count)]
-        transition_prompts = [
-            f"Smoothly morph and transition from slide {i+1} to slide {i+2}"
-            for i in range(slide_count - 1)
-        ] if not no_transitions else []
+    # Determine mode and setup
+    if topic:
+        # Topic mode: create project and generate prompts via LLM
+        project_root = Path(output_dir).resolve()
+        project_root.mkdir(parents=True, exist_ok=True)
+        (project_root / "slides").mkdir(exist_ok=True)
+        (project_root / "transitions").mkdir(exist_ok=True)
         
-        if not prompts_path:
-            rprint("[yellow]Note:[/] Using auto-generated prompts. Use --prompts for custom prompts.")
+        deck_path = project_root / "deck.json"
+        deck_slides = [Slide(image=f"slides/slide{i+1}.png") for i in range(slides)]
+        deck = Deck(slides=deck_slides)
+        
+        with open(deck_path, "w") as f:
+            json.dump(deck.model_dump(), f, indent=2)
+        
+        rprint(Panel.fit(
+            f"Generating [cyan]{slides}[/]-slide deck on: [yellow]{topic}[/]",
+            title="Generate from Topic",
+            border_style="cyan",
+        ))
+        
+        # Generate prompts via LLM
+        rprint("[dim]Designing presentation with AI...[/]")
+        try:
+            slide_prompts, transition_prompts = asyncio.run(
+                _generate_prompts_from_topic(topic, slides, not no_transitions, cfg)
+            )
+        except Exception as e:
+            rprint(f"[red]Failed to generate prompts:[/] {e}")
+            raise typer.Exit(1)
+        
+        # Save generated prompts for reference
+        prompts_data = {
+            "topic": topic,
+            "slide_prompts": slide_prompts,
+            "transition_prompts": transition_prompts,
+        }
+        with open(project_root / "prompts.json", "w") as f:
+            json.dump(prompts_data, f, indent=2)
+        
+        rprint(f"[green]Created {len(slide_prompts)} slide prompts[/]")
+        
+    else:
+        # Existing project mode
+        if not project:
+            rprint("[red]Error:[/] Either --topic or --project is required.")
+            rprint("Use [cyan]--topic[/] to generate from a topic, or [cyan]--project[/] for an existing project.")
+            raise typer.Exit(1)
+            
+        project_path = Path(project)
+        if not project_path.exists():
+            rprint(f"[red]Error:[/] Path does not exist: {project}")
+            raise typer.Exit(1)
+
+        project_root, deck_path = _get_project_root(project_path)
+        
+        if not deck_path or not deck_path.exists():
+            rprint(f"[red]Error:[/] No deck.json found in {project_root}")
+            raise typer.Exit(1)
+
+        # Load deck structure without validating assets
+        try:
+            with open(deck_path) as f:
+                deck_data = json.load(f)
+            deck = Deck(**deck_data)
+        except Exception as e:
+            rprint(f"[red]Error loading deck:[/] {e}")
+            raise typer.Exit(1)
+
+        slides = deck.slide_count()
+        
+        # Load prompts from file
+        prompts_path = Path(prompts_file) if prompts_file else project_root / "prompts.json"
+        if prompts_path.exists():
+            with open(prompts_path) as f:
+                prompts_data = json.load(f)
+            slide_prompts = prompts_data.get("slide_prompts", [])
+            transition_prompts = prompts_data.get("transition_prompts", [])
+        else:
+            rprint(f"[red]Error:[/] No prompts file found at {prompts_path}")
+            rprint("Use [cyan]--topic[/] to generate prompts automatically, or provide [cyan]--prompts[/] file.")
+            raise typer.Exit(1)
+        
+        rprint(Panel.fit(
+            f"Generating media for [cyan]{slides}[/] slides" + 
+            (f" with [cyan]{len(transition_prompts)}[/] transitions" if not no_transitions else ""),
+            title="Generate",
+            border_style="cyan",
+        ))
 
     # Validate prompt counts
-    if len(slide_prompts) != slide_count:
-        rprint(f"[red]Error:[/] Expected {slide_count} slide prompts, got {len(slide_prompts)}")
+    if len(slide_prompts) != slides:
+        rprint(f"[red]Error:[/] Expected {slides} slide prompts, got {len(slide_prompts)}")
         raise typer.Exit(1)
 
-    if not no_transitions and len(transition_prompts) != max(slide_count - 1, 0):
-        rprint(f"[red]Error:[/] Expected {max(slide_count - 1, 0)} transition prompts, got {len(transition_prompts)}")
+    if not no_transitions and len(transition_prompts) != max(slides - 1, 0):
+        rprint(f"[red]Error:[/] Expected {max(slides - 1, 0)} transition prompts, got {len(transition_prompts)}")
         raise typer.Exit(1)
-
-    rprint(Panel.fit(
-        f"Generating media for [cyan]{slide_count}[/] slides" + 
-        (f" with [cyan]{len(transition_prompts)}[/] transitions" if not no_transitions else ""),
-        title="Generate",
-        border_style="cyan",
-    ))
 
     with Progress(
         SpinnerColumn(),
@@ -353,7 +462,7 @@ def generate(
             rprint(f"[red]Generation failed:[/] {e}")
             raise typer.Exit(1)
 
-    rprint(f"\n[green]✓[/] Generation complete! Updated deck saved to [bold]{deck_path}[/]")
+    rprint(f"\n[green]✓[/] Generation complete! Project saved to [bold]{project_root}[/]")
 
 
 # ============================================================================
@@ -437,8 +546,8 @@ def info(
 @app.command()
 def init(
     directory: str = typer.Argument(
-        ".",
-        help="Directory to initialize the project in.",
+        "output",
+        help="Directory to initialize the project in (default: output/).",
     ),
     slides: int = typer.Option(5, "--slides", "-n", help="Number of placeholder slides to create."),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing deck.json."),

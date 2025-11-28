@@ -45,6 +45,7 @@ htmlcov/
 
 # Work products / uploads
 _uploads/
+output/
 
 # Logs
 *.log
