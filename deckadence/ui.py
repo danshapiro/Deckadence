@@ -678,6 +678,77 @@ h1, h2, h3, h4, h5, h6, p, span, div, label {
     outline: 2px solid var(--accent) !important;
     outline-offset: 2px;
 }
+
+/* ===== CHAT MARKDOWN ===== */
+.chat-markdown {
+    font-size: 0.875rem !important;
+    line-height: 1.6 !important;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+    color: var(--text-primary) !important;
+    margin-top: 0.75rem !important;
+    margin-bottom: 0.5rem !important;
+    font-weight: 600 !important;
+}
+
+.chat-markdown h1 { font-size: 1.25rem !important; }
+.chat-markdown h2 { font-size: 1.125rem !important; }
+.chat-markdown h3 { font-size: 1rem !important; }
+
+.chat-markdown p {
+    margin-bottom: 0.5rem !important;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+    margin-left: 1.25rem !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.chat-markdown li {
+    margin-bottom: 0.25rem !important;
+}
+
+.chat-markdown code {
+    background: var(--bg-deep) !important;
+    padding: 0.125rem 0.375rem !important;
+    border-radius: 4px !important;
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.8125rem !important;
+}
+
+.chat-markdown pre {
+    background: var(--bg-deep) !important;
+    padding: 0.75rem !important;
+    border-radius: 8px !important;
+    overflow-x: auto !important;
+    margin: 0.5rem 0 !important;
+}
+
+.chat-markdown pre code {
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+.chat-markdown strong {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+}
+
+.chat-markdown em {
+    color: var(--text-secondary) !important;
+}
+
+.chat-markdown blockquote {
+    border-left: 3px solid var(--accent) !important;
+    padding-left: 1rem !important;
+    margin: 0.5rem 0 !important;
+    color: var(--text-secondary) !important;
+}
 """
 
 LOG = logging.getLogger(__name__)

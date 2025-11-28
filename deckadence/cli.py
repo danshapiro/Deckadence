@@ -104,7 +104,7 @@ def serve(
     no_browser: bool = typer.Option(False, "--no-browser", help="Do not automatically open a browser window."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging."),
 ) -> None:
-    """🚀 Launch the Deckadence web UI server.
+    """Launch the Deckadence web UI server.
     
     Start the interactive web interface for creating and editing visual decks.
     """
@@ -118,7 +118,7 @@ def serve(
     
     rprint(Panel.fit(
         f"[bold cyan]Deckadence[/] starting on [green]http://{host}:{port}[/]",
-        title="🎴 Deckadence",
+        title="Deckadence",
         border_style="cyan",
     ))
     
@@ -156,7 +156,7 @@ def export(
     config_path: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging."),
 ) -> None:
-    """📹 Export a deck to MP4 video.
+    """Export a deck to MP4 video.
     
     Renders all slides and transitions into a single video file.
     """
@@ -177,8 +177,8 @@ def export(
 
     output_path = Path(output)
     rprint(Panel.fit(
-        f"Exporting [cyan]{deck_path}[/] → [green]{output_path}[/]",
-        title="📹 Export",
+        f"Exporting [cyan]{deck_path}[/] -> [green]{output_path}[/]",
+        title="Export",
         border_style="cyan",
     ))
 
@@ -321,7 +321,7 @@ def generate(
     rprint(Panel.fit(
         f"Generating media for [cyan]{slide_count}[/] slides" + 
         (f" with [cyan]{len(transition_prompts)}[/] transitions" if not no_transitions else ""),
-        title="🎨 Generate",
+        title="Generate",
         border_style="cyan",
     ))
 
@@ -369,7 +369,7 @@ def info(
     ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed information."),
 ) -> None:
-    """ℹ️ Display information about a deck.
+    """Display information about a deck.
     
     Shows slide count, file paths, and validation status.
     """
@@ -390,13 +390,13 @@ def info(
         raise typer.Exit(1)
 
     # Build info tree
-    tree = Tree(f"🎴 [bold cyan]Deckadence Deck[/]")
-    tree.add(f"📁 Project: [green]{project_root}[/]")
-    tree.add(f"📄 Deck file: [green]{deck_path}[/]")
-    tree.add(f"🖼️ Slides: [cyan]{deck.slide_count()}[/]")
+    tree = Tree(f"[bold cyan]Deckadence Deck[/]")
+    tree.add(f"Project: [green]{project_root}[/]")
+    tree.add(f"Deck file: [green]{deck_path}[/]")
+    tree.add(f"Slides: [cyan]{deck.slide_count()}[/]")
     
     transitions_count = sum(1 for s in deck.slides if s.transition)
-    tree.add(f"🎬 Transitions: [cyan]{transitions_count}[/]")
+    tree.add(f"Transitions: [cyan]{transitions_count}[/]")
 
     rprint(tree)
 
@@ -443,7 +443,7 @@ def init(
     slides: int = typer.Option(5, "--slides", "-n", help="Number of placeholder slides to create."),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing deck.json."),
 ) -> None:
-    """📦 Initialize a new Deckadence project.
+    """Initialize a new Deckadence project.
     
     Creates a deck.json with placeholder slides ready for generation.
     """
@@ -485,8 +485,8 @@ def init(
     with open(prompts_file, "w") as f:
         json.dump(prompts_data, f, indent=2)
 
-    tree = Tree(f"📦 [bold cyan]Project initialized[/]")
-    tree.add(f"📁 {project_dir}")
+    tree = Tree(f"[bold cyan]Project initialized[/]")
+    tree.add(f"{project_dir}")
     
     files_branch = tree.add("Files created:")
     files_branch.add(f"[green]deck.json[/] - Deck definition ({slides} slides)")
@@ -515,7 +515,7 @@ def init(
 def config_show(
     config_path: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file."),
 ) -> None:
-    """📋 Show current configuration.
+    """Show current configuration.
     
     Displays all configuration values (API keys are masked).
     """
@@ -619,7 +619,7 @@ def config_set(
 def config_path_cmd(
     config_path: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file."),
 ) -> None:
-    """📍 Show the configuration file path."""
+    """Show the configuration file path."""
     cfg_path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
     rprint(f"Config file: [cyan]{cfg_path.resolve()}[/]")
     if cfg_path.exists():
@@ -643,7 +643,7 @@ def version_callback(value: bool) -> None:
 def main_callback(
     version: bool = typer.Option(None, "--version", "-V", callback=version_callback, is_eager=True, help="Show version."),
 ) -> None:
-    """🎴 Deckadence - AI-powered visual deck creation.
+    """Deckadence - AI-powered visual deck creation.
     
     Create stunning visual presentations with AI-generated slides and transitions.
     """
