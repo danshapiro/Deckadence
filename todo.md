@@ -1,1 +1,0 @@
-Progress bar for both CLI and UI
