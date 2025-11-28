@@ -1,3 +1,1 @@
-# Deckadence TODO
-
-No outstanding items.
+Progress bar for both CLI and UI

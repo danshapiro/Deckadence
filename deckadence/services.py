@@ -610,7 +610,7 @@ async def generate_transition_clip(
     arguments = {
         "prompt": prompt,
         "image_url": start_url,
-        "tail_image": end_url,
+        "tail_image_url": end_url,
         "duration": kling_duration,
         "aspect_ratio": "16:9",
     }
