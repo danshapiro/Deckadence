@@ -21,6 +21,356 @@ from .services import (
     load_deck,
 )
 
+# ---------------------------------------------------------------------------
+# Theme & Styling
+# ---------------------------------------------------------------------------
+
+CUSTOM_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+    --bg-primary: #0d1117;
+    --bg-secondary: #161b22;
+    --bg-tertiary: #21262d;
+    --bg-elevated: #30363d;
+    --accent-primary: #58a6ff;
+    --accent-glow: rgba(88, 166, 255, 0.25);
+    --accent-warm: #f78166;
+    --text-primary: #f0f6fc;
+    --text-secondary: #8b949e;
+    --text-muted: #6e7681;
+    --border-subtle: #30363d;
+    --border-muted: #21262d;
+    --success: #3fb950;
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body {
+    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    background: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+}
+
+.nicegui-content {
+    background: var(--bg-primary) !important;
+}
+
+/* Header styling */
+.deck-header {
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    padding: 0.75rem 1.5rem !important;
+}
+
+.deck-logo {
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 1.5rem !important;
+    background: linear-gradient(135deg, var(--accent-primary) 0%, #a371f7 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.02em;
+}
+
+.deck-status {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.75rem !important;
+    color: var(--text-muted) !important;
+}
+
+/* Main panels */
+.viewer-panel {
+    background: var(--bg-secondary) !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--border-subtle) !important;
+    box-shadow: var(--shadow-md) !important;
+    overflow: hidden;
+}
+
+.chat-panel {
+    background: var(--bg-secondary) !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--border-subtle) !important;
+    box-shadow: var(--shadow-md) !important;
+}
+
+/* Slide viewer */
+.slide-container {
+    background: #000 !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+    position: relative;
+}
+
+.slide-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.4) 100%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Transport controls */
+.transport-bar {
+    background: var(--bg-tertiary) !important;
+    border-radius: 50px !important;
+    padding: 0.5rem 1rem !important;
+    gap: 0.25rem !important;
+    border: 1px solid var(--border-subtle) !important;
+}
+
+.transport-btn {
+    background: transparent !important;
+    color: var(--text-secondary) !important;
+    border-radius: 50% !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    transition: all 0.15s ease !important;
+}
+
+.transport-btn:hover {
+    background: var(--bg-elevated) !important;
+    color: var(--text-primary) !important;
+}
+
+.transport-btn-play {
+    background: var(--accent-primary) !important;
+    color: var(--bg-primary) !important;
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    box-shadow: 0 0 20px var(--accent-glow) !important;
+}
+
+.transport-btn-play:hover {
+    background: #79b8ff !important;
+    transform: scale(1.05);
+}
+
+.slide-counter {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.875rem !important;
+    color: var(--text-muted) !important;
+    padding: 0 0.75rem;
+}
+
+/* Thumbnail strip */
+.thumb-strip {
+    background: var(--bg-tertiary) !important;
+    border-radius: 8px !important;
+    padding: 0.75rem !important;
+    border: 1px solid var(--border-muted) !important;
+}
+
+.thumb-item {
+    border-radius: 6px !important;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.2s ease !important;
+    border: 2px solid transparent !important;
+    opacity: 0.7;
+}
+
+.thumb-item:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.thumb-active {
+    border-color: var(--accent-primary) !important;
+    opacity: 1;
+    box-shadow: 0 0 12px var(--accent-glow) !important;
+}
+
+/* Chat styling */
+.chat-header {
+    padding: 1rem 1.25rem !important;
+    border-bottom: 1px solid var(--border-muted) !important;
+    font-weight: 600 !important;
+    font-size: 0.875rem !important;
+    color: var(--text-secondary) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.chat-scroll {
+    background: var(--bg-primary) !important;
+    border-radius: 8px !important;
+}
+
+.chat-input-area {
+    background: var(--bg-tertiary) !important;
+    border-radius: 8px !important;
+    padding: 0.75rem !important;
+    border: 1px solid var(--border-muted) !important;
+}
+
+.chat-input {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 8px !important;
+    color: var(--text-primary) !important;
+}
+
+.chat-input:focus {
+    border-color: var(--accent-primary) !important;
+    box-shadow: 0 0 0 2px var(--accent-glow) !important;
+}
+
+.send-btn {
+    background: var(--accent-primary) !important;
+    color: var(--bg-primary) !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    padding: 0 1.25rem !important;
+    transition: all 0.15s ease !important;
+}
+
+.send-btn:hover {
+    background: #79b8ff !important;
+    transform: translateY(-1px);
+}
+
+/* Mode toggle */
+.mode-toggle {
+    background: var(--bg-tertiary) !important;
+    border-radius: 8px !important;
+    padding: 0.5rem !important;
+    border: 1px solid var(--border-muted) !important;
+}
+
+/* Header buttons */
+.header-btn {
+    background: transparent !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 8px !important;
+    font-weight: 500 !important;
+    transition: all 0.15s ease !important;
+}
+
+.header-btn:hover {
+    background: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-muted) !important;
+}
+
+.header-btn-primary {
+    background: var(--accent-primary) !important;
+    color: var(--bg-primary) !important;
+    border: none !important;
+}
+
+.header-btn-primary:hover {
+    background: #79b8ff !important;
+}
+
+/* Dialogs */
+.q-dialog__inner > div {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 12px !important;
+    box-shadow: var(--shadow-lg) !important;
+}
+
+.q-card {
+    background: var(--bg-secondary) !important;
+    color: var(--text-primary) !important;
+}
+
+.q-expansion-item {
+    background: var(--bg-tertiary) !important;
+    border-radius: 8px !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.q-input, .q-select, .q-textarea {
+    background: var(--bg-primary) !important;
+}
+
+.q-field__control {
+    background: var(--bg-primary) !important;
+    border-radius: 8px !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-elevated);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Chat messages */
+.q-message-text {
+    background: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border-radius: 12px !important;
+    font-size: 0.9375rem !important;
+    line-height: 1.5 !important;
+}
+
+.q-message-sent .q-message-text {
+    background: var(--accent-primary) !important;
+    color: var(--bg-primary) !important;
+}
+
+/* Upload area */
+.q-uploader {
+    background: var(--bg-tertiary) !important;
+    border: 1px dashed var(--border-subtle) !important;
+    border-radius: 8px !important;
+}
+
+/* Progress bars */
+.q-linear-progress {
+    background: var(--bg-elevated) !important;
+    border-radius: 4px !important;
+}
+
+.q-linear-progress__track {
+    background: var(--bg-elevated) !important;
+}
+
+.q-linear-progress__model {
+    background: var(--accent-primary) !important;
+}
+
+/* Spinner */
+.q-spinner {
+    color: var(--accent-primary) !important;
+}
+
+/* Empty state */
+.empty-state {
+    color: var(--text-muted) !important;
+    font-style: italic;
+}
+
+/* Attachment preview */
+.attachment-preview {
+    border-radius: 8px !important;
+    border: 2px solid var(--border-subtle) !important;
+    overflow: hidden;
+}
+"""
+
 LOG = logging.getLogger(__name__)
 
 
@@ -143,12 +493,11 @@ def _highlight_thumbnails(state: UIState) -> None:
     if not state.thumbnail_images:
         return
     for idx, img in enumerate(state.thumbnail_images):
-        classes = "w-28 h-16 object-cover rounded cursor-pointer border"
+        base_classes = "w-28 h-16 object-cover thumb-item"
         if idx == state.current_index:
-            classes += " border-primary shadow-md"
+            img.classes(f"{base_classes} thumb-active")
         else:
-            classes += " border-grey-5"
-        img.classes(classes)
+            img.classes(base_classes)
 
 
 def _render_thumbnails(state: UIState) -> None:
@@ -159,14 +508,16 @@ def _render_thumbnails(state: UIState) -> None:
     state.thumbnail_images.clear()
 
     if not state.deck or not state.thumbnails:
-        ui.label("No slides loaded yet").classes("text-grey-6 text-caption")
+        with state.thumbnail_row:
+            ui.label("No slides loaded").classes("empty-state text-caption")
         return
 
-    for idx, thumb_path in enumerate(state.thumbnails):
-        url = _asset_url(state, str(thumb_path))
-        img = ui.image(url).classes("w-28 h-16 object-cover rounded cursor-pointer border")
-        img.on("click", lambda e, i=idx: asyncio.create_task(_go_to_index(state, i)))
-        state.thumbnail_images.append(img)
+    with state.thumbnail_row:
+        for idx, thumb_path in enumerate(state.thumbnails):
+            url = _asset_url(state, str(thumb_path))
+            img = ui.image(url).classes("w-28 h-16 object-cover thumb-item")
+            img.on("click", lambda e, i=idx: asyncio.create_task(_go_to_index(state, i)))
+            state.thumbnail_images.append(img)
 
     _highlight_thumbnails(state)
 
@@ -329,12 +680,14 @@ def _append_chat_message(state: UIState, message: ChatMessage) -> None:
     if not state.chat_column:
         return
     with state.chat_column:
-        ui.chat_message(message.content, sent=message.role == "user").style("white-space: pre-wrap;")
+        ui.chat_message(message.content, sent=message.role == "user").style(
+            "white-space: pre-wrap; line-height: 1.6;"
+        )
         if message.images:
-            with ui.row().classes("gap-1 mt-1"):
+            with ui.row().classes("gap-2 mt-2"):
                 for img in message.images:
                     ui.image(_asset_url(state, img)).classes(
-                        "w-16 h-16 object-cover rounded border border-grey-5"
+                        "w-16 h-16 object-cover attachment-preview"
                     )
 
 
@@ -397,26 +750,28 @@ def _build_settings_dialog(state: UIState) -> ui.dialog:  # type: ignore[overrid
             if state.settings_error_label:
                 state.settings_error_label.text = f"Error: {exc}"
 
-    with dialog, ui.card().classes("w-[480px]"):
-        ui.label("Deckadence Settings").classes("text-h6 mb-2")
+    with dialog, ui.card().classes("w-[500px] p-5"):
+        with ui.row().classes("items-center gap-2 mb-4"):
+            ui.icon("settings", size="sm").style("color: var(--accent-primary);")
+            ui.label("Settings").style("font-size: 1.25rem; font-weight: 600;")
 
         # Only show API Keys section if at least one key needs to be configured
         if not gemini_from_env or not fal_from_env:
-            with ui.expansion("API Keys", icon="vpn_key", value=True):
+            with ui.expansion("API Keys", icon="vpn_key", value=True).classes("w-full"):
                 visible_inputs = []
                 if not gemini_from_env:
                     gemini_input = ui.input(
                         "Gemini API Key", password=True, autocomplete="off", value=cfg.gemini_api_key or ""
-                    )
+                    ).classes("w-full")
                     visible_inputs.append(gemini_input)
                 if not fal_from_env:
                     fal_input = ui.input(
-                        "fal.ai API Key (FAL_KEY)", password=True, autocomplete="off", value=cfg.fal_api_key or ""
-                    )
+                        "fal.ai API Key", password=True, autocomplete="off", value=cfg.fal_api_key or ""
+                    ).classes("w-full")
                     visible_inputs.append(fal_input)
 
                 if visible_inputs:
-                    show_keys = ui.checkbox("Show keys", value=False).classes("mt-1")
+                    show_keys = ui.checkbox("Show keys", value=False).classes("mt-2")
 
                     def toggle_password(e) -> None:
                         visible = bool(e.value)
@@ -425,33 +780,36 @@ def _build_settings_dialog(state: UIState) -> ui.dialog:  # type: ignore[overrid
 
                     show_keys.on_value_change(toggle_password)
 
-        with ui.expansion("Video Generation", icon="movie", value=True):
+        with ui.expansion("Video Generation", icon="movie", value=True).classes("w-full"):
             kling_model_select = ui.select(
                 {"standard": "Standard (720p, faster)", "pro": "Pro (1080p, higher quality)"},
                 value=cfg.kling_model or "pro",
                 label="Kling 2.5 Model",
+            ).classes("w-full")
+            ui.label("Pro model recommended for 2K slide decks").style(
+                "font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;"
             )
-            ui.label("Pro model recommended for 2K slide decks").classes("text-caption text-grey-6 mt-1")
 
-        with ui.expansion("Defaults", icon="settings", value=True):
+        with ui.expansion("Defaults", icon="tune", value=True).classes("w-full"):
             resolution_input = ui.input(
-                "Default export resolution (e.g. 1920x1080)", value=cfg.default_resolution
-            )
-            slide_duration_input = ui.input(
-                "Default slide duration (seconds)", value=str(cfg.default_slide_duration)
-            )
-            transition_duration_input = ui.input(
-                "Default transition duration (seconds)", value=str(cfg.default_transition_duration)
-            )
+                "Default export resolution", value=cfg.default_resolution
+            ).classes("w-full")
+            with ui.row().classes("gap-3 w-full"):
+                slide_duration_input = ui.input(
+                    "Slide duration (s)", value=str(cfg.default_slide_duration)
+                ).classes("flex-1")
+                transition_duration_input = ui.input(
+                    "Transition duration (s)", value=str(cfg.default_transition_duration)
+                ).classes("flex-1")
             no_transition_behavior = ui.select(
                 ["cut", "fade"], value=cfg.default_no_transition_behavior, label="No-transition behavior"
-            )
+            ).classes("w-full")
 
-        state.settings_error_label = ui.label("").classes("text-negative text-caption mt-1")
+        state.settings_error_label = ui.label("").style("color: var(--accent-warm); font-size: 0.75rem;")
 
-        with ui.row().classes("justify-end mt-2"):
-            ui.button("Cancel", on_click=dialog.close)
-            ui.button("Save", on_click=save_settings).props("color=primary")
+        with ui.row().classes("justify-end mt-4 gap-3"):
+            ui.button("Cancel", on_click=dialog.close).classes("header-btn").props("flat")
+            ui.button("Save", icon="check", on_click=save_settings).classes("header-btn-primary").props("unelevated")
 
     return dialog
 
@@ -523,46 +881,56 @@ def _build_export_dialog(state: UIState) -> ui.dialog:  # type: ignore[override]
 
         asyncio.create_task(run_export())
 
-    with dialog, ui.card().classes("w-[480px]"):
-        ui.label("Export Video").classes("text-h6 mb-2")
+    with dialog, ui.card().classes("w-[500px] p-5"):
+        with ui.row().classes("items-center gap-2 mb-4"):
+            ui.icon("movie", size="sm").style("color: var(--accent-primary);")
+            ui.label("Export Video").style("font-size: 1.25rem; font-weight: 600;")
 
-        resolution_select = ui.select(
-            ["1280x720", "1920x1080", "2560x1440", "Custom"],
-            value=cfg.default_resolution if cfg.default_resolution in {"1280x720", "1920x1080", "2560x1440"} else "Custom",
-            label="Resolution",
-        )
-        custom_resolution_input = ui.input(
-            "Custom resolution (e.g. 2048x1152)",
-            value=cfg.default_resolution if resolution_select.value == "Custom" else "",
-        )
-        custom_resolution_input.disabled = resolution_select.value != "Custom"
+        with ui.column().classes("gap-3 w-full"):
+            resolution_select = ui.select(
+                ["1280x720", "1920x1080", "2560x1440", "Custom"],
+                value=cfg.default_resolution if cfg.default_resolution in {"1280x720", "1920x1080", "2560x1440"} else "Custom",
+                label="Resolution",
+            ).classes("w-full")
 
-        def on_res_change(e) -> None:
-            custom_resolution_input.disabled = e.value != "Custom"
-            if e.value != "Custom":
-                custom_resolution_input.value = ""
+            custom_resolution_input = ui.input(
+                "Custom resolution (e.g. 2048x1152)",
+                value=cfg.default_resolution if resolution_select.value == "Custom" else "",
+            ).classes("w-full")
+            custom_resolution_input.disabled = resolution_select.value != "Custom"
 
-        resolution_select.on("update:model-value", on_res_change)
+            def on_res_change(e) -> None:
+                custom_resolution_input.disabled = e.value != "Custom"
+                if e.value != "Custom":
+                    custom_resolution_input.value = ""
 
-        slide_duration_input = ui.input(
-            "Slide duration (seconds)", value=str(cfg.default_slide_duration)
-        )
-        transition_duration_input = ui.input(
-            "Transition duration (seconds)", value=str(cfg.default_transition_duration)
-        )
-        mode_select = ui.select(
-            ["Slides only", "Slides + transitions"],
-            value="Slides + transitions" if state.include_transitions else "Slides only",
-            label="Mode",
-        )
-        output_input = ui.input("Output MP4 path", value="deckadence_export.mp4")
+            resolution_select.on("update:model-value", on_res_change)
 
-        state.export_progress_label = ui.label("")
-        state.export_progress_bar = ui.linear_progress(value=0.0).classes("mt-1")
+            with ui.row().classes("gap-3 w-full"):
+                slide_duration_input = ui.input(
+                    "Slide duration (s)", value=str(cfg.default_slide_duration)
+                ).classes("flex-1")
+                transition_duration_input = ui.input(
+                    "Transition duration (s)", value=str(cfg.default_transition_duration)
+                ).classes("flex-1")
 
-        with ui.row().classes("justify-end mt-2"):
-            ui.button("Cancel", on_click=dialog.close)
-            ui.button("Export", on_click=lambda: asyncio.create_task(do_export())).props("color=primary")
+            mode_select = ui.select(
+                ["Slides only", "Slides + transitions"],
+                value="Slides + transitions" if state.include_transitions else "Slides only",
+                label="Mode",
+            ).classes("w-full")
+
+            output_input = ui.input("Output filename", value="deckadence_export.mp4").classes("w-full")
+
+        with ui.column().classes("w-full mt-4 gap-1"):
+            state.export_progress_label = ui.label("").style("font-size: 0.75rem; color: var(--text-muted);")
+            state.export_progress_bar = ui.linear_progress(value=0.0)
+
+        with ui.row().classes("justify-end mt-4 gap-3"):
+            ui.button("Cancel", on_click=dialog.close).classes("header-btn").props("flat")
+            ui.button("Export", icon="file_download", on_click=lambda: asyncio.create_task(do_export())).classes(
+                "header-btn-primary"
+            ).props("unelevated")
 
     return dialog
 
@@ -579,25 +947,24 @@ def _build_generation_dialog(state: UIState) -> ui.dialog:  # type: ignore[overr
         slides_column.clear()
         transitions_column.clear()
         if not state.deck:
-            slides_column.clear()
-            transitions_column.clear()
-            ui.label("Load a deck first to generate media").classes("text-negative")
+            with slides_column:
+                ui.label("Load a deck first to generate media").style("color: var(--accent-warm);")
             return
-        for idx, _ in enumerate(state.deck.slides):
-            ta = ui.textarea(
-                f"Slide {idx + 1} visual prompt",
-                placeholder="Describe foreground, background, composition, key elements, color palette...",
-                autogrow=True,
-            ).classes("w-full")
-            prompt_inputs.append(ta)
-        if state.deck.slide_count() > 1:
-            for idx in range(state.deck.slide_count() - 1):
+        with slides_column:
+            for idx, _ in enumerate(state.deck.slides):
                 ta = ui.textarea(
-                    f"Transition {idx + 1} -> {idx + 2} prompt",
-                    placeholder="Describe how elements evolve between slides.",
-                    autogrow=True,
-                ).classes("w-full")
-                transition_inputs.append(ta)
+                    f"Slide {idx + 1}",
+                    placeholder="Describe foreground, background, composition, key elements, color palette...",
+                ).classes("w-full").props("autogrow rows=2")
+                prompt_inputs.append(ta)
+        if state.deck.slide_count() > 1:
+            with transitions_column:
+                for idx in range(state.deck.slide_count() - 1):
+                    ta = ui.textarea(
+                        f"Transition {idx + 1} → {idx + 2}",
+                        placeholder="Describe how elements evolve between slides.",
+                    ).classes("w-full").props("autogrow rows=2")
+                    transition_inputs.append(ta)
 
     async def do_generate() -> None:
         if not state.deck:
@@ -650,20 +1017,33 @@ def _build_generation_dialog(state: UIState) -> ui.dialog:  # type: ignore[overr
         await _load_deck_into_state(state)
         ui.notify("Generation complete", type="positive")
 
-    with dialog, ui.card().classes("w-[640px]"):
-        ui.label("Generate Slides & Transitions").classes("text-h6 mb-2")
+    with dialog, ui.card().classes("w-[640px] p-5"):
+        with ui.row().classes("items-center gap-2 mb-4"):
+            ui.icon("auto_fix_high", size="sm").style("color: var(--accent-primary);")
+            ui.label("Generate Media").style("font-size: 1.25rem; font-weight: 600;")
+
         include_transitions_checkbox = ui.checkbox(
-            "Generate transitions", value=True if state.include_transitions else False
-        )
-        slides_column = ui.column().classes("gap-2 max-h-64 overflow-y-auto")
-        transitions_column = ui.column().classes("gap-2 max-h-48 overflow-y-auto mt-2")
+            "Include animated transitions", value=True if state.include_transitions else False
+        ).classes("mb-3")
 
-        state.generate_progress_label = ui.label("").classes("text-caption mt-1")
-        state.generate_progress_bar = ui.linear_progress(value=0.0).classes("mt-1")
+        with ui.column().classes("gap-2 w-full"):
+            ui.label("Slide Prompts").style("font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;")
+            slides_column = ui.scroll_area().classes("w-full").style("max-height: 200px;")
 
-        with ui.row().classes("justify-end mt-2 gap-2"):
-            ui.button("Cancel", on_click=dialog.close)
-            ui.button("Generate", on_click=lambda: asyncio.create_task(do_generate())).props("color=primary")
+            ui.label("Transition Prompts").style(
+                "font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-top: 1rem;"
+            )
+            transitions_column = ui.scroll_area().classes("w-full").style("max-height: 150px;")
+
+        with ui.column().classes("w-full mt-4 gap-1"):
+            state.generate_progress_label = ui.label("").style("font-size: 0.75rem; color: var(--text-muted);")
+            state.generate_progress_bar = ui.linear_progress(value=0.0)
+
+        with ui.row().classes("justify-end mt-4 gap-3"):
+            ui.button("Cancel", on_click=dialog.close).classes("header-btn").props("flat")
+            ui.button("Generate", icon="auto_awesome", on_click=lambda: asyncio.create_task(do_generate())).classes(
+                "header-btn-primary"
+            ).props("unelevated")
 
     dialog.on("show", lambda e: populate_fields())
     return dialog
@@ -677,16 +1057,22 @@ def _build_generation_dialog(state: UIState) -> ui.dialog:  # type: ignore[overr
 def create_main_ui(state: UIState) -> None:
     """Compose the NiceGUI interface."""
 
+    # Inject custom CSS
+    ui.add_head_html(f"<style>{CUSTOM_CSS}</style>")
+
     llm_service = LLMService(state.config)
     conversation = ConversationManager(llm_service)
     state.conversation = conversation
 
     # Header bar
-    with ui.header().classes("justify-between items-center px-4"):
-        with ui.column():
-            ui.label("Deckadence").classes("text-h5")
-            state.deck_status_label = ui.label("Loading deck...").classes("text-caption text-grey-6")
-        with ui.row().classes("items-center gap-2"):
+    with ui.header().classes("deck-header justify-between items-center"):
+        with ui.row().classes("items-center gap-3"):
+            ui.icon("auto_awesome", size="sm").style("color: var(--accent-primary);")
+            with ui.column().classes("gap-0"):
+                ui.label("Deckadence").classes("deck-logo")
+                state.deck_status_label = ui.label("Loading deck...").classes("deck-status")
+
+        with ui.row().classes("items-center gap-3"):
             export_dialog = _build_export_dialog(state)
             settings_dialog = _build_settings_dialog(state)
             generate_dialog = _build_generation_dialog(state)
@@ -694,143 +1080,169 @@ def create_main_ui(state: UIState) -> None:
             state.settings_dialog = settings_dialog
             state.generate_dialog = generate_dialog
 
-            ui.button("Settings", on_click=settings_dialog.open).props("flat dense")
-            ui.button("Generate", on_click=generate_dialog.open).props("flat dense")
-            ui.button("Export", on_click=export_dialog.open).props("color=primary")
+            ui.button("Settings", icon="settings", on_click=settings_dialog.open).classes("header-btn").props(
+                "flat unelevated"
+            )
+            ui.button("Generate", icon="auto_fix_high", on_click=generate_dialog.open).classes("header-btn").props(
+                "flat unelevated"
+            )
+            ui.button("Export", icon="movie", on_click=export_dialog.open).classes("header-btn-primary").props(
+                "unelevated"
+            )
 
     # Main layout
-    with ui.row().classes("w-full h-full gap-4 p-4"):
+    with ui.row().classes("w-full gap-5 p-5").style("height: calc(100vh - 70px);"):
         # Left: slide viewer and transport controls
-        with ui.column().classes("w-3/5 items-center"):
-            # Slide viewer keeps 16:9 aspect ratio with letterboxing
-            slide_container = ui.card().classes("w-full bg-black")
-            with slide_container:
-                wrapper = ui.element("div").classes("w-full relative")
-                with wrapper:
+        with ui.column().classes("viewer-panel").style("flex: 3; min-width: 0;"):
+            with ui.column().classes("w-full h-full p-4 gap-4"):
+                # Slide viewer keeps 16:9 aspect ratio
+                with ui.element("div").classes("slide-container w-full"):
                     img = ui.image().classes("w-full").style(
-                        "aspect-ratio: 16 / 9; object-fit: contain; background-color: black;"
+                        "aspect-ratio: 16 / 9; object-fit: contain; background: #000;"
                     )
                     vid = ui.video("").classes("w-full").style(
-                        "aspect-ratio: 16 / 9; object-fit: contain; background-color: black;"
+                        "aspect-ratio: 16 / 9; object-fit: contain; background: #000;"
                     )
                     vid.visible = False
                     vid.props("controls=false muted")
-                state.slide_image = img
-                state.slide_video = vid
+                    state.slide_image = img
+                    state.slide_video = vid
 
-            # Transport controls
-            with ui.row().classes("w-full justify-center items-center mt-2 gap-2"):
-                ui.button(on_click=lambda: asyncio.create_task(_go_first(state))).props("icon=first_page")
-                ui.button(on_click=lambda: asyncio.create_task(_go_prev(state))).props("icon=chevron_left")
+                # Transport controls
+                with ui.row().classes("transport-bar justify-center items-center mx-auto"):
+                    ui.button(on_click=lambda: asyncio.create_task(_go_first(state))).props(
+                        "icon=first_page flat round"
+                    ).classes("transport-btn")
+                    ui.button(on_click=lambda: asyncio.create_task(_go_prev(state))).props(
+                        "icon=chevron_left flat round"
+                    ).classes("transport-btn")
 
-                state.play_button = ui.button(
-                    on_click=lambda: asyncio.create_task(_toggle_play(state))
-                ).props("icon=play_arrow")
+                    state.play_button = ui.button(
+                        on_click=lambda: asyncio.create_task(_toggle_play(state))
+                    ).props("icon=play_arrow round unelevated").classes("transport-btn-play")
 
-                ui.button(on_click=lambda: asyncio.create_task(_stop_playback(state))).props("icon=stop")
-                ui.button(on_click=lambda: asyncio.create_task(_go_next(state))).props("icon=chevron_right")
-                ui.button(on_click=lambda: asyncio.create_task(_go_last(state))).props("icon=last_page")
-                counter = ui.label(_slide_counter_text(state)).classes("ml-2")
-                state.counter_label = counter
+                    ui.button(on_click=lambda: asyncio.create_task(_stop_playback(state))).props(
+                        "icon=stop flat round"
+                    ).classes("transport-btn")
+                    ui.button(on_click=lambda: asyncio.create_task(_go_next(state))).props(
+                        "icon=chevron_right flat round"
+                    ).classes("transport-btn")
+                    ui.button(on_click=lambda: asyncio.create_task(_go_last(state))).props(
+                        "icon=last_page flat round"
+                    ).classes("transport-btn")
 
-            # Thumbnail strip
-            with ui.row().classes(
-                "w-full overflow-x-auto no-wrap mt-2 items-center gap-2 border-t pt-2"
-            ) as thumb_row:
-                state.thumbnail_row = thumb_row
-                ui.label("No slides loaded yet").classes("text-grey-6 text-caption")
+                    counter = ui.label(_slide_counter_text(state)).classes("slide-counter")
+                    state.counter_label = counter
+
+                # Thumbnail strip
+                with ui.row().classes("thumb-strip w-full overflow-x-auto no-wrap items-center gap-3") as thumb_row:
+                    state.thumbnail_row = thumb_row
+                    ui.label("No slides loaded").classes("empty-state text-caption")
 
         # Right: chat panel
-        with ui.column().classes("w-2/5 h-full"):
-            ui.label("Conversation").classes("text-subtitle1 mb-1")
+        with ui.column().classes("chat-panel").style("flex: 2; min-width: 320px;"):
+            # Chat header
+            with ui.row().classes("chat-header items-center gap-2"):
+                ui.icon("chat", size="xs").style("color: var(--text-muted);")
+                ui.label("Conversation")
 
-            with ui.scroll_area().classes("flex-1 border rounded-lg p-2") as chat_scroll:
-                state.chat_column = ui.column()
+            # Chat messages area
+            with ui.column().classes("flex-1 p-3").style("min-height: 0; overflow: hidden;"):
+                with ui.scroll_area().classes("chat-scroll w-full h-full"):
+                    state.chat_column = ui.column().classes("gap-3 p-2")
 
-            upload_dir = state.project_root / "_uploads"
-            upload_dir.mkdir(parents=True, exist_ok=True)
+            # Input area
+            with ui.column().classes("p-3 gap-3"):
+                upload_dir = state.project_root / "_uploads"
+                upload_dir.mkdir(parents=True, exist_ok=True)
 
-            attachments_row = ui.row().classes("items-center gap-2 mt-1 flex-wrap")
-            attachments_row.visible = False
+                attachments_row = ui.row().classes("items-center gap-2 flex-wrap")
+                attachments_row.visible = False
 
-            def refresh_attachments() -> None:
-                attachments_row.clear()
-                if not state.pending_images:
-                    attachments_row.visible = False
-                    return
-                attachments_row.visible = True
-                with attachments_row:
-                    for img_path in state.pending_images:
-                        ui.image(_asset_url(state, str(img_path))).classes(
-                            "w-12 h-12 object-cover rounded border border-grey-5"
-                        )
-                    ui.button(
-                        "Clear attachments",
-                        on_click=lambda: (state.pending_images.clear(), refresh_attachments()),
-                    ).props("flat dense color=negative")
-
-            def handle_upload(e) -> None:
-                dest = upload_dir / e.name
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(e.content.read())
-                state.pending_images.append(dest)
-                refresh_attachments()
-
-            with ui.row().classes("items-center gap-2 mt-2"):
-                ui.upload(
-                    label="Attach images",
-                    on_upload=handle_upload,
-                    multiple=True,
-                ).props("accept=image/*")
-                ui.label("Optional: add style/content reference images").classes("text-caption text-grey-7")
-
-            with ui.row().classes("items-center mt-2 gap-2"):
-                mode_toggle = ui.radio(
-                    ["Slides only", "Slides + transitions"],
-                    value="Slides + transitions" if state.include_transitions else "Slides only",
-                    on_change=lambda e: setattr(state, "include_transitions", e.value == "Slides + transitions"),
-                )
-                mode_toggle.props("inline")
-                ui.space()
-            with ui.row().classes("items-center mt-2 gap-2"):
-                input_box = ui.input("Type a message...").props("clearable").classes("flex-1")
-                state.input_box = input_box
-                state.chat_spinner = ui.spinner("dots")
-                state.chat_spinner.visible = False
-
-                async def send_message() -> None:
-                    text = input_box.value or ""
-                    if not text.strip():
+                def refresh_attachments() -> None:
+                    attachments_row.clear()
+                    if not state.pending_images:
+                        attachments_row.visible = False
                         return
-                    images = [str(p) for p in state.pending_images] or None
-                    msg = ChatMessage(role="user", content=text.strip(), images=images)
-                    _append_chat_message(state, msg)
-                    input_box.value = ""
-                    state.pending_images.clear()
-                    refresh_attachments()
-                    if state.chat_spinner:
-                        state.chat_spinner.visible = True
+                    attachments_row.visible = True
+                    with attachments_row:
+                        for img_path in state.pending_images:
+                            ui.image(_asset_url(state, str(img_path))).classes(
+                                "w-12 h-12 object-cover attachment-preview"
+                            )
+                        ui.button(
+                            icon="close",
+                            on_click=lambda: (state.pending_images.clear(), refresh_attachments()),
+                        ).props("flat dense round size=sm").style("color: var(--accent-warm);")
 
-                    try:
-                        reply = await state.conversation.handle_user_message(msg)
-                    except Exception as exc:  # pragma: no cover - defensive
-                        LOG.exception("Chat failed: %s", exc)
-                        _append_chat_message(
-                            state,
-                            ChatMessage(
-                                role="assistant",
-                                content=f"Sorry, something went wrong while talking to the model: {exc}",
-                            ),
-                        )
+                def handle_upload(e) -> None:
+                    dest = upload_dir / e.name
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(e.content.read())
+                    state.pending_images.append(dest)
+                    refresh_attachments()
+
+                # Mode toggle
+                with ui.row().classes("mode-toggle items-center gap-3 w-full"):
+                    ui.icon("tune", size="xs").style("color: var(--text-muted);")
+                    mode_toggle = ui.radio(
+                        ["Slides only", "Slides + transitions"],
+                        value="Slides + transitions" if state.include_transitions else "Slides only",
+                        on_change=lambda e: setattr(state, "include_transitions", e.value == "Slides + transitions"),
+                    ).props("inline dense")
+
+                # Upload and input row
+                with ui.row().classes("chat-input-area items-center gap-2 w-full"):
+                    ui.upload(
+                        on_upload=handle_upload,
+                        multiple=True,
+                    ).props("accept=image/* flat dense").classes("w-10").style(
+                        "min-width: 40px; max-width: 40px;"
+                    )
+
+                    input_box = ui.input(placeholder="Describe your deck idea...").props(
+                        "borderless dense"
+                    ).classes("chat-input flex-1")
+                    state.input_box = input_box
+
+                    state.chat_spinner = ui.spinner("dots", size="sm")
+                    state.chat_spinner.visible = False
+
+                    async def send_message() -> None:
+                        text = input_box.value or ""
+                        if not text.strip():
+                            return
+                        images = [str(p) for p in state.pending_images] or None
+                        msg = ChatMessage(role="user", content=text.strip(), images=images)
+                        _append_chat_message(state, msg)
+                        input_box.value = ""
+                        state.pending_images.clear()
+                        refresh_attachments()
+                        if state.chat_spinner:
+                            state.chat_spinner.visible = True
+
+                        try:
+                            reply = await state.conversation.handle_user_message(msg)
+                        except Exception as exc:  # pragma: no cover - defensive
+                            LOG.exception("Chat failed: %s", exc)
+                            _append_chat_message(
+                                state,
+                                ChatMessage(
+                                    role="assistant",
+                                    content=f"Sorry, something went wrong: {exc}",
+                                ),
+                            )
+                            if state.chat_spinner:
+                                state.chat_spinner.visible = False
+                            return
+
+                        _append_chat_message(state, reply)
                         if state.chat_spinner:
                             state.chat_spinner.visible = False
-                        return
 
-                    _append_chat_message(state, reply)
-                    if state.chat_spinner:
-                        state.chat_spinner.visible = False
-
-                ui.button("Send", on_click=lambda: asyncio.create_task(send_message())).props("color=primary")
+                    ui.button(icon="send", on_click=lambda: asyncio.create_task(send_message())).classes(
+                        "send-btn"
+                    ).props("unelevated round")
 
     # Playback timer (global)
     async def on_timer() -> None:
@@ -842,12 +1254,12 @@ def create_main_ui(state: UIState) -> None:
     intro = ChatMessage(
         role="assistant",
         content=(
-            "Hi, I'm Deckadence. Let's design a highly visual slide deck together.\n\n"
-            "- What's the purpose of the deck and who is the audience?\n"
-            "- What's the tone (e.g., visionary, analytical, playful)?\n"
-            "- Roughly how many slides do you want?\n"
-            "- Do you prefer static slides only, or slides plus animated transitions?\n"
-            "- Any visual style preferences or reference images?"
+            "Welcome! Let's create a stunning visual deck together.\n\n"
+            "To get started, tell me:\n"
+            "• What's the deck's purpose and audience?\n"
+            "• What tone are you going for?\n"
+            "• How many slides do you need?\n"
+            "• Any visual style preferences?"
         ),
     )
     _append_chat_message(state, intro)

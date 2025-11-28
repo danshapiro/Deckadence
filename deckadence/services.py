@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import hashlib
+import io
 import json
 import logging
 import os
@@ -14,6 +15,8 @@ import aiofiles
 import fal_client
 import ffmpeg  # type: ignore
 import httpx
+from google import genai
+from google.genai import types
 from PIL import Image, ImageOps
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
@@ -358,8 +361,36 @@ def _resolve_deck_file(project_root: Path, deck_path: Optional[Path]) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Media generation (Nano Banana Pro / Kling 2.5)
+# Media generation (Gemini Image Generation / Kling 2.5)
 # ---------------------------------------------------------------------------
+
+# Default model for image generation (Nano Banana Pro / Gemini 3 Pro Image)
+GEMINI_IMAGE_MODEL = "gemini-3-pro-image-preview"
+
+
+def _get_gemini_client(cfg: AppConfig) -> genai.Client:
+    """Create a Gemini client with the configured API key."""
+    if not cfg.gemini_api_key:
+        raise RuntimeError("Gemini API key is not configured. Please set GEMINI_API_KEY environment variable or configure it in Settings.")
+    return genai.Client(api_key=cfg.gemini_api_key)
+
+
+def _extract_image_from_response(response) -> bytes:
+    """Extract the first image from a Gemini generate_content response."""
+    for part in response.candidates[0].content.parts:
+        if part.inline_data is not None and part.inline_data.mime_type.startswith("image/"):
+            return part.inline_data.data
+    raise RuntimeError("No image found in Gemini response")
+
+
+def _resize_image_to_target(image_data: bytes, width: int, height: int) -> bytes:
+    """Resize/pad the generated image to the target resolution."""
+    with Image.open(io.BytesIO(image_data)) as im:
+        # Pad/resize to exact target dimensions
+        resized = ImageOps.pad(im.convert("RGB"), (width, height), color=(0, 0, 0))
+        output = io.BytesIO()
+        resized.save(output, format="PNG")
+        return output.getvalue()
 
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=8), reraise=True)
@@ -371,20 +402,55 @@ async def generate_slide_image(
     width: int = 1920,
     height: int = 1080,
 ) -> Path:
-    """Generate a 2K slide image via Nano Banana Pro."""
-    if not cfg.nano_banana_base_url or not cfg.gemini_api_key:
-        raise RuntimeError("Nano Banana Pro is not configured (base URL and Gemini API key required).")
-
-    payload: dict = {"prompt": prompt, "width": width, "height": height}
+    """Generate a 2K slide image via Gemini's native image generation.
+    
+    Uses Gemini 2.0 Flash (or newer) with response_modalities=["IMAGE"] to
+    generate images directly from the model.
+    """
+    client = _get_gemini_client(cfg)
+    
+    # Build the prompt with aspect ratio hint
+    aspect_ratio = f"{width}:{height}"
+    full_prompt = f"{prompt}\n\nGenerate this as a high-quality, professional slide image with {aspect_ratio} aspect ratio."
+    
+    # Build content parts
+    contents: list = [full_prompt]
+    
+    # Add reference images if provided
     if reference_images:
-        payload["reference_images"] = [str(p) for p in reference_images]
-
-    headers = {"Authorization": f"Bearer {cfg.gemini_api_key}"}
-    async with httpx.AsyncClient(timeout=180.0) as client:
-        resp = await client.post(f"{cfg.nano_banana_base_url}/v1/generate", json=payload, headers=headers)
-        resp.raise_for_status()
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(resp.content)
+        for ref_path in reference_images:
+            if ref_path.exists():
+                image_bytes = ref_path.read_bytes()
+                mime_type = "image/png" if ref_path.suffix.lower() == ".png" else "image/jpeg"
+                contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
+    
+    LOG.info("Generating slide image with Gemini: %s", prompt[:80] + "..." if len(prompt) > 80 else prompt)
+    
+    # Run the synchronous API call in a thread pool
+    loop = asyncio.get_event_loop()
+    
+    def _generate():
+        response = client.models.generate_content(
+            model=GEMINI_IMAGE_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+            ),
+        )
+        return response
+    
+    response = await loop.run_in_executor(None, _generate)
+    
+    # Extract and save the image
+    image_data = _extract_image_from_response(response)
+    
+    # Resize to target dimensions
+    final_image = _resize_image_to_target(image_data, width, height)
+    
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(final_image)
+    
+    LOG.info("Saved generated slide image to %s", dest)
     return dest
 
 
@@ -397,23 +463,60 @@ async def generate_slide_image_edit(
     width: int = 1920,
     height: int = 1080,
 ) -> Path:
-    """Generate a 2K slide image using Nano Banana Pro Edit with a reference image."""
-    if not cfg.nano_banana_base_url or not cfg.gemini_api_key:
-        raise RuntimeError("Nano Banana Pro is not configured (base URL and Gemini API key required).")
-
-    payload: dict = {
-        "prompt": prompt,
-        "reference_image": str(reference_image),
-        "width": width,
-        "height": height,
-    }
-
-    headers = {"Authorization": f"Bearer {cfg.gemini_api_key}"}
-    async with httpx.AsyncClient(timeout=180.0) as client:
-        resp = await client.post(f"{cfg.nano_banana_base_url}/v1/edit", json=payload, headers=headers)
-        resp.raise_for_status()
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(resp.content)
+    """Generate a 2K slide image using Gemini with a reference image for style consistency.
+    
+    This sends the reference image along with the prompt to maintain visual
+    coherence across slides in the deck.
+    """
+    client = _get_gemini_client(cfg)
+    
+    if not reference_image.exists():
+        raise FileNotFoundError(f"Reference image not found: {reference_image}")
+    
+    # Build the prompt with context about the reference
+    aspect_ratio = f"{width}:{height}"
+    full_prompt = (
+        f"{prompt}\n\n"
+        f"Use the attached reference image as a style guide. Maintain visual consistency "
+        f"with the same color palette, artistic style, and visual language. "
+        f"Generate as a high-quality, professional slide image with {aspect_ratio} aspect ratio."
+    )
+    
+    # Read reference image
+    ref_bytes = reference_image.read_bytes()
+    ref_mime = "image/png" if reference_image.suffix.lower() == ".png" else "image/jpeg"
+    
+    contents = [
+        full_prompt,
+        types.Part.from_bytes(data=ref_bytes, mime_type=ref_mime),
+    ]
+    
+    LOG.info("Generating slide image with reference: %s", prompt[:80] + "..." if len(prompt) > 80 else prompt)
+    
+    loop = asyncio.get_event_loop()
+    
+    def _generate():
+        response = client.models.generate_content(
+            model=GEMINI_IMAGE_MODEL,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+            ),
+        )
+        return response
+    
+    response = await loop.run_in_executor(None, _generate)
+    
+    # Extract and save the image
+    image_data = _extract_image_from_response(response)
+    
+    # Resize to target dimensions
+    final_image = _resize_image_to_target(image_data, width, height)
+    
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(final_image)
+    
+    LOG.info("Saved generated slide image to %s", dest)
     return dest
 
 

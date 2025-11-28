@@ -24,10 +24,7 @@ class FileConfig(BaseModel):
         description="Default LiteLLM model identifier.",
     )
     gemini_api_key: Optional[str] = Field(
-        default=None, description="API key for Google Gemini (used for LLM and Nano Banana)."
-    )
-    nano_banana_base_url: Optional[str] = Field(
-        default=None, description="Base URL for Nano Banana Pro image API."
+        default=None, description="API key for Google Gemini (used for LLM and image generation)."
     )
     fal_api_key: Optional[str] = Field(
         default=None, description="API key for fal.ai (used for Kling 2.5 video generation)."
