@@ -26,348 +26,657 @@ from .services import (
 # ---------------------------------------------------------------------------
 
 CUSTOM_CSS = """
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 :root {
-    --bg-primary: #0d1117;
-    --bg-secondary: #161b22;
-    --bg-tertiary: #21262d;
-    --bg-elevated: #30363d;
-    --accent-primary: #58a6ff;
-    --accent-glow: rgba(88, 166, 255, 0.25);
-    --accent-warm: #f78166;
-    --text-primary: #f0f6fc;
-    --text-secondary: #8b949e;
-    --text-muted: #6e7681;
-    --border-subtle: #30363d;
-    --border-muted: #21262d;
-    --success: #3fb950;
-    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --bg-deep: #0a0a0c;
+    --bg-primary: #111114;
+    --bg-card: #18181b;
+    --bg-elevated: #232328;
+    --bg-hover: #2a2a30;
+    --accent: #e5a158;
+    --accent-soft: rgba(229, 161, 88, 0.15);
+    --accent-glow: rgba(229, 161, 88, 0.3);
+    --accent-bright: #f4b87a;
+    --text-primary: #fafafa;
+    --text-secondary: #a1a1aa;
+    --text-muted: #71717a;
+    --border: rgba(255, 255, 255, 0.06);
+    --border-focus: rgba(229, 161, 88, 0.4);
+    --success: #4ade80;
+    --error: #f87171;
 }
 
+* { box-sizing: border-box; }
+
 body {
-    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif !important;
-    background: var(--bg-primary) !important;
+    font-family: 'Outfit', system-ui, sans-serif !important;
+    background: var(--bg-deep) !important;
     color: var(--text-primary) !important;
+    -webkit-font-smoothing: antialiased;
 }
 
 .nicegui-content {
-    background: var(--bg-primary) !important;
+    background: var(--bg-deep) !important;
+    padding: 0 !important;
 }
 
-/* Header styling */
-.deck-header {
-    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%) !important;
-    border-bottom: 1px solid var(--border-subtle) !important;
-    padding: 0.75rem 1.5rem !important;
+/* ===== HEADER ===== */
+.app-header {
+    background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-deep) 100%) !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 0.875rem 1.5rem !important;
+    backdrop-filter: blur(12px);
 }
 
-.deck-logo {
-    font-family: 'Space Grotesk', sans-serif !important;
+.logo-text {
+    font-family: 'Outfit', sans-serif !important;
     font-weight: 700 !important;
-    font-size: 1.5rem !important;
-    background: linear-gradient(135deg, var(--accent-primary) 0%, #a371f7 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -0.02em;
+    font-size: 1.375rem !important;
+    color: var(--accent) !important;
+    letter-spacing: -0.03em;
 }
 
-.deck-status {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.75rem !important;
+.status-text {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.6875rem !important;
     color: var(--text-muted) !important;
+    letter-spacing: 0.02em;
 }
 
-/* Main panels */
-.viewer-panel {
-    background: var(--bg-secondary) !important;
-    border-radius: 12px !important;
-    border: 1px solid var(--border-subtle) !important;
-    box-shadow: var(--shadow-md) !important;
-    overflow: hidden;
-}
-
-.chat-panel {
-    background: var(--bg-secondary) !important;
-    border-radius: 12px !important;
-    border: 1px solid var(--border-subtle) !important;
-    box-shadow: var(--shadow-md) !important;
-}
-
-/* Slide viewer */
-.slide-container {
-    background: #000 !important;
-    border-radius: 8px !important;
-    overflow: hidden;
-    position: relative;
-}
-
-.slide-container::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.4) 100%);
-    pointer-events: none;
-    z-index: 1;
-}
-
-/* Transport controls */
-.transport-bar {
-    background: var(--bg-tertiary) !important;
-    border-radius: 50px !important;
-    padding: 0.5rem 1rem !important;
-    gap: 0.25rem !important;
-    border: 1px solid var(--border-subtle) !important;
-}
-
-.transport-btn {
+/* ===== BUTTONS ===== */
+.btn-ghost {
     background: transparent !important;
     color: var(--text-secondary) !important;
-    border-radius: 50% !important;
-    width: 40px !important;
-    height: 40px !important;
-    min-width: 40px !important;
-    transition: all 0.15s ease !important;
+    font-weight: 500 !important;
+    font-size: 0.8125rem !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
 }
 
-.transport-btn:hover {
+.btn-ghost:hover {
     background: var(--bg-elevated) !important;
     color: var(--text-primary) !important;
 }
 
-.transport-btn-play {
-    background: var(--accent-primary) !important;
-    color: var(--bg-primary) !important;
-    width: 48px !important;
-    height: 48px !important;
-    min-width: 48px !important;
-    box-shadow: 0 0 20px var(--accent-glow) !important;
-}
-
-.transport-btn-play:hover {
-    background: #79b8ff !important;
-    transform: scale(1.05);
-}
-
-.slide-counter {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.875rem !important;
-    color: var(--text-muted) !important;
-    padding: 0 0.75rem;
-}
-
-/* Thumbnail strip */
-.thumb-strip {
-    background: var(--bg-tertiary) !important;
-    border-radius: 8px !important;
-    padding: 0.75rem !important;
-    border: 1px solid var(--border-muted) !important;
-}
-
-.thumb-item {
-    border-radius: 6px !important;
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.2s ease !important;
-    border: 2px solid transparent !important;
-    opacity: 0.7;
-}
-
-.thumb-item:hover {
-    opacity: 1;
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-}
-
-.thumb-active {
-    border-color: var(--accent-primary) !important;
-    opacity: 1;
-    box-shadow: 0 0 12px var(--accent-glow) !important;
-}
-
-/* Chat styling */
-.chat-header {
-    padding: 1rem 1.25rem !important;
-    border-bottom: 1px solid var(--border-muted) !important;
+.btn-accent {
+    background: var(--accent) !important;
+    color: var(--bg-deep) !important;
     font-weight: 600 !important;
-    font-size: 0.875rem !important;
-    color: var(--text-secondary) !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.05em !important;
+    font-size: 0.8125rem !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
 }
 
-.chat-scroll {
+.btn-accent:hover {
+    background: var(--accent-bright) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+/* ===== MAIN LAYOUT ===== */
+.main-container {
+    display: flex;
+    gap: 1.25rem;
+    padding: 1.25rem;
+    height: calc(100vh - 60px);
+    min-height: 0;
+}
+
+.viewer-section {
+    flex: 1.4;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.chat-section {
+    flex: 1;
+    min-width: 340px;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card) !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--border) !important;
+    overflow: hidden;
+}
+
+/* ===== SLIDE VIEWER ===== */
+.slide-frame {
     background: var(--bg-primary) !important;
-    border-radius: 8px !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--border) !important;
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
 }
 
-.chat-input-area {
-    background: var(--bg-tertiary) !important;
-    border-radius: 8px !important;
-    padding: 0.75rem !important;
-    border: 1px solid var(--border-muted) !important;
+.slide-display {
+    width: 100%;
+    max-height: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: contain;
+    background: #000;
+    border-radius: 8px;
 }
 
-.chat-input {
-    background: var(--bg-secondary) !important;
-    border: 1px solid var(--border-subtle) !important;
-    border-radius: 8px !important;
+/* ===== TRANSPORT ===== */
+.transport-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding: 0.625rem 1rem;
+    background: var(--bg-card) !important;
+    border-radius: 999px !important;
+    border: 1px solid var(--border) !important;
+    width: fit-content;
+    margin: 0 auto;
+}
+
+.transport-btn {
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 50% !important;
+    transition: all 0.15s ease !important;
+}
+
+.transport-btn:hover {
+    background: var(--bg-hover) !important;
     color: var(--text-primary) !important;
 }
 
-.chat-input:focus {
-    border-color: var(--accent-primary) !important;
-    box-shadow: 0 0 0 2px var(--accent-glow) !important;
+.play-btn {
+    background: var(--accent) !important;
+    color: var(--bg-deep) !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    border-radius: 50% !important;
+    box-shadow: 0 2px 12px var(--accent-glow) !important;
+    transition: all 0.15s ease !important;
+}
+
+.play-btn:hover {
+    background: var(--accent-bright) !important;
+    transform: scale(1.06);
+    box-shadow: 0 4px 20px var(--accent-glow) !important;
+}
+
+.slide-counter {
+    font-family: 'IBM Plex Mono', monospace !important;
+    font-size: 0.75rem !important;
+    color: var(--text-muted) !important;
+    padding: 0 0.75rem;
+    min-width: 60px;
+    text-align: center;
+}
+
+/* ===== THUMBNAILS ===== */
+.thumb-rail {
+    display: flex;
+    gap: 0.625rem;
+    padding: 0.75rem;
+    background: var(--bg-card) !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--border) !important;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.thumb-card {
+    flex-shrink: 0;
+    width: 100px;
+    height: 56px;
+    border-radius: 6px !important;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent !important;
+    opacity: 0.6;
+    transition: all 0.2s ease !important;
+}
+
+.thumb-card:hover {
+    opacity: 0.9;
+    border-color: var(--bg-hover) !important;
+}
+
+.thumb-card.active {
+    opacity: 1;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* ===== CHAT ===== */
+.chat-header {
+    padding: 1rem 1.25rem !important;
+    border-bottom: 1px solid var(--border) !important;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.chat-title {
+    font-weight: 600 !important;
+    font-size: 0.875rem !important;
+    color: var(--text-secondary) !important;
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    background: var(--bg-primary) !important;
+}
+
+.chat-input-container {
+    padding: 0.875rem;
+    background: var(--bg-card) !important;
+    border-top: 1px solid var(--border) !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.mode-pills {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.25rem;
+    background: var(--bg-elevated) !important;
+    border-radius: 8px !important;
+}
+
+.input-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--bg-elevated) !important;
+    border-radius: 10px !important;
+    border: 1px solid var(--border) !important;
+    transition: border-color 0.2s ease;
+}
+
+.input-row:focus-within {
+    border-color: var(--border-focus) !important;
+}
+
+.chat-input {
+    flex: 1;
+    background: transparent !important;
+    border: none !important;
+    color: var(--text-primary) !important;
+    font-size: 0.875rem !important;
 }
 
 .send-btn {
-    background: var(--accent-primary) !important;
-    color: var(--bg-primary) !important;
+    background: var(--accent) !important;
+    color: var(--bg-deep) !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
     border-radius: 8px !important;
-    font-weight: 600 !important;
-    padding: 0 1.25rem !important;
     transition: all 0.15s ease !important;
 }
 
 .send-btn:hover {
-    background: #79b8ff !important;
-    transform: translateY(-1px);
+    background: var(--accent-bright) !important;
 }
 
-/* Mode toggle */
-.mode-toggle {
-    background: var(--bg-tertiary) !important;
-    border-radius: 8px !important;
-    padding: 0.5rem !important;
-    border: 1px solid var(--border-muted) !important;
-}
-
-/* Header buttons */
-.header-btn {
-    background: transparent !important;
-    color: var(--text-secondary) !important;
-    border: 1px solid var(--border-subtle) !important;
-    border-radius: 8px !important;
-    font-weight: 500 !important;
-    transition: all 0.15s ease !important;
-}
-
-.header-btn:hover {
-    background: var(--bg-tertiary) !important;
+/* ===== MESSAGES ===== */
+.q-message-text {
+    background: var(--bg-elevated) !important;
     color: var(--text-primary) !important;
-    border-color: var(--border-muted) !important;
-}
-
-.header-btn-primary {
-    background: var(--accent-primary) !important;
-    color: var(--bg-primary) !important;
-    border: none !important;
-}
-
-.header-btn-primary:hover {
-    background: #79b8ff !important;
-}
-
-/* Dialogs */
-.q-dialog__inner > div {
-    background: var(--bg-secondary) !important;
-    border: 1px solid var(--border-subtle) !important;
     border-radius: 12px !important;
-    box-shadow: var(--shadow-lg) !important;
+    font-size: 0.875rem !important;
+    line-height: 1.6 !important;
+    padding: 0.75rem 1rem !important;
+}
+
+.q-message-sent .q-message-text {
+    background: var(--accent) !important;
+    color: var(--bg-deep) !important;
+}
+
+.q-message-name {
+    font-size: 0.6875rem !important;
+    color: var(--text-muted) !important;
+    font-weight: 500 !important;
+}
+
+/* ===== DIALOGS ===== */
+.q-dialog__inner > div {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5) !important;
 }
 
 .q-card {
-    background: var(--bg-secondary) !important;
+    background: var(--bg-card) !important;
     color: var(--text-primary) !important;
 }
 
+/* ===== QUASAR OVERRIDES FOR DARK THEME ===== */
+
+/* Expansion items */
 .q-expansion-item {
-    background: var(--bg-tertiary) !important;
-    border-radius: 8px !important;
+    background: var(--bg-elevated) !important;
+    border-radius: 10px !important;
     margin-bottom: 0.5rem !important;
+    border: 1px solid var(--border) !important;
 }
 
-.q-input, .q-select, .q-textarea {
-    background: var(--bg-primary) !important;
+.q-expansion-item__container {
+    background: transparent !important;
 }
 
+.q-item {
+    color: var(--text-primary) !important;
+}
+
+.q-item__label {
+    color: var(--text-primary) !important;
+}
+
+.q-item__label--caption {
+    color: var(--text-muted) !important;
+}
+
+/* Form fields - labels */
+.q-field__label {
+    color: var(--text-secondary) !important;
+}
+
+.q-field__native,
+.q-field__prefix,
+.q-field__suffix,
+.q-field__input {
+    color: var(--text-primary) !important;
+}
+
+.q-field__native::placeholder {
+    color: var(--text-muted) !important;
+    opacity: 1;
+}
+
+/* Form field controls */
 .q-field__control {
     background: var(--bg-primary) !important;
     border-radius: 8px !important;
+    color: var(--text-primary) !important;
 }
 
-/* Scrollbar */
+.q-field--outlined .q-field__control:before {
+    border-color: var(--border) !important;
+}
+
+.q-field--focused .q-field__control:before {
+    border-color: var(--accent) !important;
+}
+
+/* Input, textarea, select text */
+input, textarea, select {
+    color: var(--text-primary) !important;
+}
+
+input::placeholder, textarea::placeholder {
+    color: var(--text-muted) !important;
+}
+
+/* Radio buttons */
+.q-radio {
+    color: var(--text-primary) !important;
+}
+
+.q-radio__label {
+    color: var(--text-primary) !important;
+}
+
+.q-radio__inner {
+    color: var(--text-muted) !important;
+}
+
+.q-radio__inner--truthy {
+    color: var(--accent) !important;
+}
+
+/* Checkboxes */
+.q-checkbox {
+    color: var(--text-primary) !important;
+}
+
+.q-checkbox__label {
+    color: var(--text-primary) !important;
+}
+
+.q-checkbox__inner {
+    color: var(--text-muted) !important;
+}
+
+.q-checkbox__inner--truthy {
+    color: var(--accent) !important;
+}
+
+/* Select dropdowns */
+.q-select__dropdown-icon {
+    color: var(--text-muted) !important;
+}
+
+.q-menu {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+}
+
+.q-item--active {
+    color: var(--accent) !important;
+}
+
+/* Option groups in menus */
+.q-virtual-scroll__content .q-item {
+    color: var(--text-primary) !important;
+}
+
+.q-virtual-scroll__content .q-item:hover {
+    background: var(--bg-elevated) !important;
+}
+
+/* Tooltips */
+.q-tooltip {
+    background: var(--bg-elevated) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Notifications */
+.q-notification {
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Icons in various contexts */
+.q-icon {
+    color: inherit;
+}
+
+.q-field__append .q-icon,
+.q-field__prepend .q-icon {
+    color: var(--text-muted) !important;
+}
+
+/* Buttons inside fields */
+.q-field .q-btn {
+    color: var(--text-muted) !important;
+}
+
+/* Expansion item header text */
+.q-expansion-item .q-item__section--main {
+    color: var(--text-primary) !important;
+}
+
+.q-expansion-item .q-item__section--side .q-icon {
+    color: var(--text-muted) !important;
+}
+
+/* ===== SCROLLBAR ===== */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-primary);
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--bg-elevated);
-    border-radius: 4px;
+    background: var(--bg-hover);
+    border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
 }
 
-/* Chat messages */
-.q-message-text {
-    background: var(--bg-tertiary) !important;
-    color: var(--text-primary) !important;
-    border-radius: 12px !important;
-    font-size: 0.9375rem !important;
-    line-height: 1.5 !important;
-}
-
-.q-message-sent .q-message-text {
-    background: var(--accent-primary) !important;
-    color: var(--bg-primary) !important;
-}
-
-/* Upload area */
-.q-uploader {
-    background: var(--bg-tertiary) !important;
-    border: 1px dashed var(--border-subtle) !important;
-    border-radius: 8px !important;
-}
-
-/* Progress bars */
+/* ===== PROGRESS ===== */
 .q-linear-progress {
     background: var(--bg-elevated) !important;
     border-radius: 4px !important;
-}
-
-.q-linear-progress__track {
-    background: var(--bg-elevated) !important;
+    height: 4px !important;
 }
 
 .q-linear-progress__model {
-    background: var(--accent-primary) !important;
+    background: var(--accent) !important;
 }
 
-/* Spinner */
+/* ===== MISC ===== */
 .q-spinner {
-    color: var(--accent-primary) !important;
+    color: var(--accent) !important;
 }
 
-/* Empty state */
-.empty-state {
+.empty-hint {
     color: var(--text-muted) !important;
-    font-style: italic;
+    font-size: 0.8125rem !important;
 }
 
-/* Attachment preview */
-.attachment-preview {
-    border-radius: 8px !important;
-    border: 2px solid var(--border-subtle) !important;
+.attachment-chip {
+    border-radius: 6px !important;
+    border: 1px solid var(--border) !important;
     overflow: hidden;
+}
+
+.q-uploader {
+    background: transparent !important;
+    border: none !important;
+}
+
+.q-uploader__header {
+    display: none !important;
+}
+
+.upload-btn {
+    background: var(--bg-hover) !important;
+    color: var(--text-muted) !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 8px !important;
+}
+
+.upload-btn:hover {
+    color: var(--text-primary) !important;
+}
+
+/* ===== GLOBAL TEXT LEGIBILITY ===== */
+
+/* Ensure all text inherits proper colors */
+.nicegui-content,
+.nicegui-content * {
+    color: inherit;
+}
+
+/* Fix any remaining dark text */
+.q-field--dark .q-field__native,
+.q-field--dark .q-field__input {
+    color: var(--text-primary) !important;
+}
+
+/* Labels and helper text */
+.q-field__bottom {
+    color: var(--text-muted) !important;
+}
+
+.q-field__messages {
+    color: var(--text-muted) !important;
+}
+
+/* Table cells if any */
+.q-table {
+    color: var(--text-primary) !important;
+}
+
+.q-table th, .q-table td {
+    color: var(--text-primary) !important;
+}
+
+/* List items */
+.q-list {
+    color: var(--text-primary) !important;
+}
+
+/* Tabs if used */
+.q-tab {
+    color: var(--text-secondary) !important;
+}
+
+.q-tab--active {
+    color: var(--accent) !important;
+}
+
+/* Chip/tag components */
+.q-chip {
+    background: var(--bg-elevated) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Badge */
+.q-badge {
+    color: var(--bg-deep) !important;
+}
+
+/* Toggle */
+.q-toggle__label {
+    color: var(--text-primary) !important;
+}
+
+/* Slider labels */
+.q-slider__text {
+    color: var(--text-primary) !important;
+}
+
+/* Breadcrumbs */
+.q-breadcrumbs {
+    color: var(--text-secondary) !important;
+}
+
+/* Force text colors on common elements */
+h1, h2, h3, h4, h5, h6, p, span, div, label {
+    color: inherit;
+}
+
+/* Ensure proper contrast on focusable elements */
+:focus-visible {
+    outline: 2px solid var(--accent) !important;
+    outline-offset: 2px;
 }
 """
 
@@ -493,11 +802,10 @@ def _highlight_thumbnails(state: UIState) -> None:
     if not state.thumbnail_images:
         return
     for idx, img in enumerate(state.thumbnail_images):
-        base_classes = "w-28 h-16 object-cover thumb-item"
         if idx == state.current_index:
-            img.classes(f"{base_classes} thumb-active")
+            img.classes("thumb-card active", remove="thumb-card")
         else:
-            img.classes(base_classes)
+            img.classes("thumb-card", remove="thumb-card active")
 
 
 def _render_thumbnails(state: UIState) -> None:
@@ -509,13 +817,13 @@ def _render_thumbnails(state: UIState) -> None:
 
     if not state.deck or not state.thumbnails:
         with state.thumbnail_row:
-            ui.label("No slides loaded").classes("empty-state text-caption")
+            ui.label("No slides yet").classes("empty-hint")
         return
 
     with state.thumbnail_row:
         for idx, thumb_path in enumerate(state.thumbnails):
             url = _asset_url(state, str(thumb_path))
-            img = ui.image(url).classes("w-28 h-16 object-cover thumb-item")
+            img = ui.image(url).classes("thumb-card").style("object-fit: cover;")
             img.on("click", lambda e, i=idx: asyncio.create_task(_go_to_index(state, i)))
             state.thumbnail_images.append(img)
 
@@ -680,9 +988,14 @@ def _append_chat_message(state: UIState, message: ChatMessage) -> None:
     if not state.chat_column:
         return
     with state.chat_column:
-        ui.chat_message(message.content, sent=message.role == "user").style(
-            "white-space: pre-wrap; line-height: 1.6;"
-        )
+        # Use markdown rendering for assistant messages, plain text for user
+        if message.role == "assistant":
+            with ui.chat_message(sent=False).style("line-height: 1.6;"):
+                ui.markdown(message.content).classes("chat-markdown")
+        else:
+            ui.chat_message(message.content, sent=True).style(
+                "white-space: pre-wrap; line-height: 1.6;"
+            )
         if message.images:
             with ui.row().classes("gap-2 mt-2"):
                 for img in message.images:
@@ -750,10 +1063,10 @@ def _build_settings_dialog(state: UIState) -> ui.dialog:  # type: ignore[overrid
             if state.settings_error_label:
                 state.settings_error_label.text = f"Error: {exc}"
 
-    with dialog, ui.card().classes("w-[500px] p-5"):
-        with ui.row().classes("items-center gap-2 mb-4"):
-            ui.icon("settings", size="sm").style("color: var(--accent-primary);")
-            ui.label("Settings").style("font-size: 1.25rem; font-weight: 600;")
+    with dialog, ui.card().classes("w-[480px] p-6"):
+        with ui.row().classes("items-center gap-3 mb-5"):
+            ui.icon("settings", size="sm").style("color: var(--accent);")
+            ui.label("Settings").style("font-size: 1.125rem; font-weight: 600;")
 
         # Only show API Keys section if at least one key needs to be configured
         if not gemini_from_env or not fal_from_env:
@@ -787,7 +1100,7 @@ def _build_settings_dialog(state: UIState) -> ui.dialog:  # type: ignore[overrid
                 label="Kling 2.5 Model",
             ).classes("w-full")
             ui.label("Pro model recommended for 2K slide decks").style(
-                "font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;"
+                "font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.5rem;"
             )
 
         with ui.expansion("Defaults", icon="tune", value=True).classes("w-full"):
@@ -805,11 +1118,11 @@ def _build_settings_dialog(state: UIState) -> ui.dialog:  # type: ignore[overrid
                 ["cut", "fade"], value=cfg.default_no_transition_behavior, label="No-transition behavior"
             ).classes("w-full")
 
-        state.settings_error_label = ui.label("").style("color: var(--accent-warm); font-size: 0.75rem;")
+        state.settings_error_label = ui.label("").style("color: var(--error); font-size: 0.75rem;")
 
-        with ui.row().classes("justify-end mt-4 gap-3"):
-            ui.button("Cancel", on_click=dialog.close).classes("header-btn").props("flat")
-            ui.button("Save", icon="check", on_click=save_settings).classes("header-btn-primary").props("unelevated")
+        with ui.row().classes("justify-end mt-5 gap-2"):
+            ui.button("Cancel", on_click=dialog.close).classes("btn-ghost").props("flat")
+            ui.button("Save", icon="check", on_click=save_settings).classes("btn-accent").props("unelevated")
 
     return dialog
 
@@ -881,10 +1194,10 @@ def _build_export_dialog(state: UIState) -> ui.dialog:  # type: ignore[override]
 
         asyncio.create_task(run_export())
 
-    with dialog, ui.card().classes("w-[500px] p-5"):
-        with ui.row().classes("items-center gap-2 mb-4"):
-            ui.icon("movie", size="sm").style("color: var(--accent-primary);")
-            ui.label("Export Video").style("font-size: 1.25rem; font-weight: 600;")
+    with dialog, ui.card().classes("w-[480px] p-6"):
+        with ui.row().classes("items-center gap-3 mb-5"):
+            ui.icon("movie", size="sm").style("color: var(--accent);")
+            ui.label("Export Video").style("font-size: 1.125rem; font-weight: 600;")
 
         with ui.column().classes("gap-3 w-full"):
             resolution_select = ui.select(
@@ -922,15 +1235,13 @@ def _build_export_dialog(state: UIState) -> ui.dialog:  # type: ignore[override]
 
             output_input = ui.input("Output filename", value="deckadence_export.mp4").classes("w-full")
 
-        with ui.column().classes("w-full mt-4 gap-1"):
+        with ui.column().classes("w-full mt-5 gap-1"):
             state.export_progress_label = ui.label("").style("font-size: 0.75rem; color: var(--text-muted);")
             state.export_progress_bar = ui.linear_progress(value=0.0)
 
-        with ui.row().classes("justify-end mt-4 gap-3"):
-            ui.button("Cancel", on_click=dialog.close).classes("header-btn").props("flat")
-            ui.button("Export", icon="file_download", on_click=lambda: asyncio.create_task(do_export())).classes(
-                "header-btn-primary"
-            ).props("unelevated")
+        with ui.row().classes("justify-end mt-5 gap-2"):
+            ui.button("Cancel", on_click=dialog.close).classes("btn-ghost").props("flat")
+            ui.button("Export", icon="download", on_click=lambda: asyncio.create_task(do_export())).classes("btn-accent").props("unelevated")
 
     return dialog
 
@@ -948,7 +1259,7 @@ def _build_generation_dialog(state: UIState) -> ui.dialog:  # type: ignore[overr
         transitions_column.clear()
         if not state.deck:
             with slides_column:
-                ui.label("Load a deck first to generate media").style("color: var(--accent-warm);")
+                ui.label("Load a deck first to generate media").style("color: var(--error);")
             return
         with slides_column:
             for idx, _ in enumerate(state.deck.slides):
@@ -1017,33 +1328,29 @@ def _build_generation_dialog(state: UIState) -> ui.dialog:  # type: ignore[overr
         await _load_deck_into_state(state)
         ui.notify("Generation complete", type="positive")
 
-    with dialog, ui.card().classes("w-[640px] p-5"):
-        with ui.row().classes("items-center gap-2 mb-4"):
-            ui.icon("auto_fix_high", size="sm").style("color: var(--accent-primary);")
-            ui.label("Generate Media").style("font-size: 1.25rem; font-weight: 600;")
+    with dialog, ui.card().classes("w-[580px] p-6"):
+        with ui.row().classes("items-center gap-3 mb-5"):
+            ui.icon("auto_fix_high", size="sm").style("color: var(--accent);")
+            ui.label("Generate Media").style("font-size: 1.125rem; font-weight: 600;")
 
         include_transitions_checkbox = ui.checkbox(
             "Include animated transitions", value=True if state.include_transitions else False
         ).classes("mb-3")
 
-        with ui.column().classes("gap-2 w-full"):
-            ui.label("Slide Prompts").style("font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;")
-            slides_column = ui.scroll_area().classes("w-full").style("max-height: 200px;")
+        with ui.column().classes("gap-3 w-full"):
+            ui.label("Slide Prompts").style("font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;")
+            slides_column = ui.scroll_area().classes("w-full").style("max-height: 180px;")
 
-            ui.label("Transition Prompts").style(
-                "font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-top: 1rem;"
-            )
-            transitions_column = ui.scroll_area().classes("w-full").style("max-height: 150px;")
+            ui.label("Transition Prompts").style("font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.5rem;")
+            transitions_column = ui.scroll_area().classes("w-full").style("max-height: 140px;")
 
-        with ui.column().classes("w-full mt-4 gap-1"):
+        with ui.column().classes("w-full mt-5 gap-1"):
             state.generate_progress_label = ui.label("").style("font-size: 0.75rem; color: var(--text-muted);")
             state.generate_progress_bar = ui.linear_progress(value=0.0)
 
-        with ui.row().classes("justify-end mt-4 gap-3"):
-            ui.button("Cancel", on_click=dialog.close).classes("header-btn").props("flat")
-            ui.button("Generate", icon="auto_awesome", on_click=lambda: asyncio.create_task(do_generate())).classes(
-                "header-btn-primary"
-            ).props("unelevated")
+        with ui.row().classes("justify-end mt-5 gap-2"):
+            ui.button("Cancel", on_click=dialog.close).classes("btn-ghost").props("flat")
+            ui.button("Generate", icon="auto_awesome", on_click=lambda: asyncio.create_task(do_generate())).classes("btn-accent").props("unelevated")
 
     dialog.on("show", lambda e: populate_fields())
     return dialog
@@ -1064,95 +1371,67 @@ def create_main_ui(state: UIState) -> None:
     conversation = ConversationManager(llm_service)
     state.conversation = conversation
 
-    # Header bar
-    with ui.header().classes("deck-header justify-between items-center"):
-        with ui.row().classes("items-center gap-3"):
-            ui.icon("auto_awesome", size="sm").style("color: var(--accent-primary);")
+    # Build dialogs
+    export_dialog = _build_export_dialog(state)
+    settings_dialog = _build_settings_dialog(state)
+    generate_dialog = _build_generation_dialog(state)
+    state.export_dialog = export_dialog
+    state.settings_dialog = settings_dialog
+    state.generate_dialog = generate_dialog
+
+    # Header
+    with ui.header().classes("app-header justify-between items-center"):
+        with ui.row().classes("items-center gap-2"):
+            ui.icon("dashboard", size="sm").style("color: var(--accent);")
             with ui.column().classes("gap-0"):
-                ui.label("Deckadence").classes("deck-logo")
-                state.deck_status_label = ui.label("Loading deck...").classes("deck-status")
+                ui.label("Deckadence").classes("logo-text")
+                state.deck_status_label = ui.label("Ready").classes("status-text")
 
-        with ui.row().classes("items-center gap-3"):
-            export_dialog = _build_export_dialog(state)
-            settings_dialog = _build_settings_dialog(state)
-            generate_dialog = _build_generation_dialog(state)
-            state.export_dialog = export_dialog
-            state.settings_dialog = settings_dialog
-            state.generate_dialog = generate_dialog
+        with ui.row().classes("items-center gap-2"):
+            ui.button(icon="settings", on_click=settings_dialog.open).classes("btn-ghost").props("flat round")
+            ui.button("Generate", icon="auto_fix_high", on_click=generate_dialog.open).classes("btn-ghost").props("flat")
+            ui.button("Export", icon="download", on_click=export_dialog.open).classes("btn-accent").props("unelevated")
 
-            ui.button("Settings", icon="settings", on_click=settings_dialog.open).classes("header-btn").props(
-                "flat unelevated"
-            )
-            ui.button("Generate", icon="auto_fix_high", on_click=generate_dialog.open).classes("header-btn").props(
-                "flat unelevated"
-            )
-            ui.button("Export", icon="movie", on_click=export_dialog.open).classes("header-btn-primary").props(
-                "unelevated"
-            )
+    # Main content
+    with ui.element("div").classes("main-container"):
+        # Left: Viewer
+        with ui.element("div").classes("viewer-section"):
+            # Slide display
+            with ui.element("div").classes("slide-frame"):
+                img = ui.image().classes("slide-display")
+                vid = ui.video("").classes("slide-display")
+                vid.visible = False
+                vid.props("controls=false muted")
+                state.slide_image = img
+                state.slide_video = vid
 
-    # Main layout
-    with ui.row().classes("w-full gap-5 p-5").style("height: calc(100vh - 70px);"):
-        # Left: slide viewer and transport controls
-        with ui.column().classes("viewer-panel").style("flex: 3; min-width: 0;"):
-            with ui.column().classes("w-full h-full p-4 gap-4"):
-                # Slide viewer keeps 16:9 aspect ratio
-                with ui.element("div").classes("slide-container w-full"):
-                    img = ui.image().classes("w-full").style(
-                        "aspect-ratio: 16 / 9; object-fit: contain; background: #000;"
-                    )
-                    vid = ui.video("").classes("w-full").style(
-                        "aspect-ratio: 16 / 9; object-fit: contain; background: #000;"
-                    )
-                    vid.visible = False
-                    vid.props("controls=false muted")
-                    state.slide_image = img
-                    state.slide_video = vid
+            # Transport controls
+            with ui.element("div").classes("transport-controls"):
+                ui.button(on_click=lambda: asyncio.create_task(_go_first(state))).props("icon=skip_previous flat round").classes("transport-btn")
+                ui.button(on_click=lambda: asyncio.create_task(_go_prev(state))).props("icon=chevron_left flat round").classes("transport-btn")
+                state.play_button = ui.button(on_click=lambda: asyncio.create_task(_toggle_play(state))).props("icon=play_arrow round unelevated").classes("play-btn")
+                ui.button(on_click=lambda: asyncio.create_task(_stop_playback(state))).props("icon=stop flat round").classes("transport-btn")
+                ui.button(on_click=lambda: asyncio.create_task(_go_next(state))).props("icon=chevron_right flat round").classes("transport-btn")
+                ui.button(on_click=lambda: asyncio.create_task(_go_last(state))).props("icon=skip_next flat round").classes("transport-btn")
+                state.counter_label = ui.label(_slide_counter_text(state)).classes("slide-counter")
 
-                # Transport controls
-                with ui.row().classes("transport-bar justify-center items-center mx-auto"):
-                    ui.button(on_click=lambda: asyncio.create_task(_go_first(state))).props(
-                        "icon=first_page flat round"
-                    ).classes("transport-btn")
-                    ui.button(on_click=lambda: asyncio.create_task(_go_prev(state))).props(
-                        "icon=chevron_left flat round"
-                    ).classes("transport-btn")
+            # Thumbnail rail
+            with ui.row().classes("thumb-rail") as thumb_row:
+                state.thumbnail_row = thumb_row
+                ui.label("No slides yet").classes("empty-hint")
 
-                    state.play_button = ui.button(
-                        on_click=lambda: asyncio.create_task(_toggle_play(state))
-                    ).props("icon=play_arrow round unelevated").classes("transport-btn-play")
+        # Right: Chat
+        with ui.element("div").classes("chat-section"):
+            with ui.element("div").classes("chat-header"):
+                ui.icon("forum", size="xs").style("color: var(--text-muted);")
+                ui.label("Design Assistant").classes("chat-title")
 
-                    ui.button(on_click=lambda: asyncio.create_task(_stop_playback(state))).props(
-                        "icon=stop flat round"
-                    ).classes("transport-btn")
-                    ui.button(on_click=lambda: asyncio.create_task(_go_next(state))).props(
-                        "icon=chevron_right flat round"
-                    ).classes("transport-btn")
-                    ui.button(on_click=lambda: asyncio.create_task(_go_last(state))).props(
-                        "icon=last_page flat round"
-                    ).classes("transport-btn")
-
-                    counter = ui.label(_slide_counter_text(state)).classes("slide-counter")
-                    state.counter_label = counter
-
-                # Thumbnail strip
-                with ui.row().classes("thumb-strip w-full overflow-x-auto no-wrap items-center gap-3") as thumb_row:
-                    state.thumbnail_row = thumb_row
-                    ui.label("No slides loaded").classes("empty-state text-caption")
-
-        # Right: chat panel
-        with ui.column().classes("chat-panel").style("flex: 2; min-width: 320px;"):
-            # Chat header
-            with ui.row().classes("chat-header items-center gap-2"):
-                ui.icon("chat", size="xs").style("color: var(--text-muted);")
-                ui.label("Conversation")
-
-            # Chat messages area
-            with ui.column().classes("flex-1 p-3").style("min-height: 0; overflow: hidden;"):
-                with ui.scroll_area().classes("chat-scroll w-full h-full"):
-                    state.chat_column = ui.column().classes("gap-3 p-2")
+            # Messages
+            with ui.scroll_area().classes("chat-messages"):
+                state.chat_column = ui.column().classes("w-full gap-2")
 
             # Input area
-            with ui.column().classes("p-3 gap-3"):
+            with ui.element("div").classes("chat-input-container"):
                 upload_dir = state.project_root / "_uploads"
                 upload_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1167,13 +1446,8 @@ def create_main_ui(state: UIState) -> None:
                     attachments_row.visible = True
                     with attachments_row:
                         for img_path in state.pending_images:
-                            ui.image(_asset_url(state, str(img_path))).classes(
-                                "w-12 h-12 object-cover attachment-preview"
-                            )
-                        ui.button(
-                            icon="close",
-                            on_click=lambda: (state.pending_images.clear(), refresh_attachments()),
-                        ).props("flat dense round size=sm").style("color: var(--accent-warm);")
+                            ui.image(_asset_url(state, str(img_path))).classes("w-10 h-10 object-cover attachment-chip")
+                        ui.button(icon="close", on_click=lambda: (state.pending_images.clear(), refresh_attachments())).props("flat dense round size=xs").style("color: var(--error);")
 
                 def handle_upload(e) -> None:
                     dest = upload_dir / e.name
@@ -1183,28 +1457,18 @@ def create_main_ui(state: UIState) -> None:
                     refresh_attachments()
 
                 # Mode toggle
-                with ui.row().classes("mode-toggle items-center gap-3 w-full"):
-                    ui.icon("tune", size="xs").style("color: var(--text-muted);")
+                with ui.element("div").classes("mode-pills"):
                     mode_toggle = ui.radio(
-                        ["Slides only", "Slides + transitions"],
-                        value="Slides + transitions" if state.include_transitions else "Slides only",
-                        on_change=lambda e: setattr(state, "include_transitions", e.value == "Slides + transitions"),
+                        ["Slides", "Slides + Transitions"],
+                        value="Slides + Transitions" if state.include_transitions else "Slides",
+                        on_change=lambda e: setattr(state, "include_transitions", e.value == "Slides + Transitions"),
                     ).props("inline dense")
 
-                # Upload and input row
-                with ui.row().classes("chat-input-area items-center gap-2 w-full"):
-                    ui.upload(
-                        on_upload=handle_upload,
-                        multiple=True,
-                    ).props("accept=image/* flat dense").classes("w-10").style(
-                        "min-width: 40px; max-width: 40px;"
-                    )
-
-                    input_box = ui.input(placeholder="Describe your deck idea...").props(
-                        "borderless dense"
-                    ).classes("chat-input flex-1")
+                # Input row
+                with ui.element("div").classes("input-row"):
+                    ui.upload(on_upload=handle_upload, multiple=True).props("accept=image/* flat dense").classes("upload-btn").style("width: 36px; height: 36px;")
+                    input_box = ui.input(placeholder="What deck would you like to create?").props("borderless dense").classes("chat-input")
                     state.input_box = input_box
-
                     state.chat_spinner = ui.spinner("dots", size="sm")
                     state.chat_spinner.visible = False
 
@@ -1223,15 +1487,9 @@ def create_main_ui(state: UIState) -> None:
 
                         try:
                             reply = await state.conversation.handle_user_message(msg)
-                        except Exception as exc:  # pragma: no cover - defensive
+                        except Exception as exc:
                             LOG.exception("Chat failed: %s", exc)
-                            _append_chat_message(
-                                state,
-                                ChatMessage(
-                                    role="assistant",
-                                    content=f"Sorry, something went wrong: {exc}",
-                                ),
-                            )
+                            _append_chat_message(state, ChatMessage(role="assistant", content=f"Sorry, something went wrong: {exc}"))
                             if state.chat_spinner:
                                 state.chat_spinner.visible = False
                             return
@@ -1240,9 +1498,7 @@ def create_main_ui(state: UIState) -> None:
                         if state.chat_spinner:
                             state.chat_spinner.visible = False
 
-                    ui.button(icon="send", on_click=lambda: asyncio.create_task(send_message())).classes(
-                        "send-btn"
-                    ).props("unelevated round")
+                    ui.button(icon="send", on_click=lambda: asyncio.create_task(send_message())).classes("send-btn").props("unelevated round")
 
     # Playback timer (global)
     async def on_timer() -> None:
@@ -1250,17 +1506,10 @@ def create_main_ui(state: UIState) -> None:
 
     ui.timer(0.5, on_timer)
 
-    # Initial assistant message for first interaction
+    # Initial assistant message
     intro = ChatMessage(
         role="assistant",
-        content=(
-            "Welcome! Let's create a stunning visual deck together.\n\n"
-            "To get started, tell me:\n"
-            "• What's the deck's purpose and audience?\n"
-            "• What tone are you going for?\n"
-            "• How many slides do you need?\n"
-            "• Any visual style preferences?"
-        ),
+        content="Hi! I'm here to help you create a beautiful visual deck.\n\nTell me about your presentation—what's it for, who's the audience, and what vibe are you going for?",
     )
     _append_chat_message(state, intro)
 
@@ -1291,29 +1540,28 @@ def run_app(
         project_root = Path.cwd()
         deck_path = project_root / "deck.json" if (project_root / "deck.json").exists() else None
 
-    state = UIState(
-        config_manager=config_manager,
-        config=cfg,
-        project_root=project_root,
-        deck_path=deck_path,
-    )
-
     # Expose project assets to the browser.
-    app.add_static_files(state.static_mount, str(project_root))
+    app.add_static_files("/project", str(project_root))
 
-    create_main_ui(state)
+    @ui.page('/')
+    def index_page():
+        state = UIState(
+            config_manager=config_manager,
+            config=cfg,
+            project_root=project_root,
+            deck_path=deck_path,
+        )
 
-    if config_manager.is_missing_required_keys(cfg):
-        # Open settings dialog on first launch when keys are missing.
-        async def open_settings_on_start() -> None:
-            await asyncio.sleep(0.1)
-            if state.settings_dialog:
-                state.settings_dialog.open()
+        create_main_ui(state)
 
-        ui.timer(0.2, open_settings_on_start, once=True)
+        if config_manager.is_missing_required_keys(cfg):
+            async def open_settings_on_start() -> None:
+                await asyncio.sleep(0.1)
+                if state.settings_dialog:
+                    state.settings_dialog.open()
+            ui.timer(0.2, open_settings_on_start, once=True)
 
-    # Auto-load deck (if provided) shortly after UI mounts.
-    ui.timer(0.3, lambda: asyncio.create_task(_load_deck_into_state(state)), once=True)
+        ui.timer(0.3, lambda: asyncio.create_task(_load_deck_into_state(state)), once=True)
 
     ui.run(
         title="Deckadence",
