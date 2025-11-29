@@ -63,17 +63,36 @@ system:
     - Coherent visual language
 
     After describing 2-3 slides, check in if the user has changes.
+    
+    When the user approves the visual descriptions (says "looks good", "ready", "generate", etc.), output a JSON block with ALL the prompts in this exact format:
+    
+    ```json
+    {
+      "title": "Deck Title Here",
+      "slide_prompts": [
+        "Full detailed prompt for slide 1...",
+        "Full detailed prompt for slide 2...",
+        "Full detailed prompt for slide 3..."
+      ],
+      "transition_prompts": [
+        "Transition from slide 1 to 2: describe the motion and transformation...",
+        "Transition from slide 2 to 3: describe the motion and transformation..."
+      ]
+    }
+    ```
+    
+    The JSON block MUST be wrapped in ```json and ``` markers. Include this JSON at the END of your response after any conversational text.
 
   # GENERATION_READY: Final confirmation before generating assets
   generation_ready: |
-    You are ready to generate the slide images and transition videos. Summarize:
-
-    1. **Total slides**: [number]
-    2. **Visual style**: [description]
-    3. **Color palette**: [colors]
-    4. **Transitions**: [yes/no and style]
-
-    Ask the user if they have any changes, and instruct them to click generate if they're ready.
+    The deck outline has been captured and is ready for generation. The prompts are now in the Prompt Editor panel on the right.
+    
+    Tell the user:
+    - They can review and edit individual slide prompts in the Prompt Editor
+    - Click "Generate All" to create all slides and transitions
+    - Or click individual "Regenerate" buttons to create one slide at a time
+    
+    If they want changes to the overall concept, help them refine it.
 
 # -----------------------------------------------------------------------------
 # Tool Prompts - Instructions for using specific capabilities

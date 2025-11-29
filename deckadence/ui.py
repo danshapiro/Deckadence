@@ -10,7 +10,7 @@ from typing import List, Optional
 from nicegui import app, ui
 
 from .config import AppConfig, ConfigManager
-from .models import ChatMessage, ConversationPhase, Deck, ExportSettings
+from .models import ChatMessage, ConversationPhase, Deck, DeckOutline, ExportSettings, Slide
 from .services import (
     ConversationManager,
     ExportProgress,
@@ -114,33 +114,140 @@ body {
     box-shadow: 0 4px 12px var(--accent-glow);
 }
 
-/* ===== MAIN LAYOUT ===== */
+/* ===== MAIN LAYOUT (Three-Panel) ===== */
 .main-container {
     display: flex;
-    gap: 1.25rem;
-    padding: 1.25rem;
+    gap: 1rem;
+    padding: 1rem;
     height: calc(100vh - 60px);
     min-height: 0;
 }
 
-.viewer-section {
-    flex: 1.4;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
 .chat-section {
-    flex: 1;
-    min-width: 340px;
-    max-width: 480px;
+    flex: 0 0 320px;
+    min-width: 280px;
+    max-width: 380px;
     display: flex;
     flex-direction: column;
     background: var(--bg-card) !important;
     border-radius: 16px !important;
     border: 1px solid var(--border) !important;
     overflow: hidden;
+}
+
+.prompt-editor-section {
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-card) !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--border) !important;
+    overflow: hidden;
+}
+
+.viewer-section {
+    flex: 1;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ===== PROMPT EDITOR ===== */
+.prompt-editor-header {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.prompt-editor-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.prompt-editor-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+}
+
+.prompt-card {
+    background: var(--bg-elevated) !important;
+    border-radius: 10px !important;
+    border: 1px solid var(--border) !important;
+    margin-bottom: 0.625rem;
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.prompt-card:hover {
+    border-color: var(--bg-hover) !important;
+}
+
+.prompt-card.selected {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+.prompt-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.prompt-card-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.prompt-card-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.prompt-textarea {
+    background: var(--bg-primary) !important;
+    border-radius: 6px !important;
+    min-height: 60px;
+}
+
+.prompt-thumbnail {
+    width: 80px;
+    height: 45px;
+    border-radius: 4px;
+    object-fit: cover;
+    margin-top: 0.5rem;
+}
+
+.transition-card {
+    background: var(--bg-deep) !important;
+    border-radius: 8px !important;
+    border: 1px dashed var(--border) !important;
+    margin: 0.375rem 0;
+    padding: 0.5rem 0.75rem;
+}
+
+.transition-card-label {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    margin-bottom: 0.375rem;
+}
+
+.prompt-editor-footer {
+    padding: 0.75rem 1rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
 }
 
 /* ===== SLIDE VIEWER ===== */
@@ -765,6 +872,7 @@ class UIState:
     deck: Optional[Deck] = None
     thumbnails: List[Path] = field(default_factory=list)
     current_index: int = 0
+    selected_slide_index: int = 0  # For prompt editor sync
     is_playing: bool = False
     include_transitions: bool = True
     playback_phase: str = "slide"  # 'slide' or 'transition'
@@ -773,10 +881,15 @@ class UIState:
     is_generating: bool = False
     static_mount: str = "/project"
 
+    # Prompt editor state
+    slide_prompts: List[str] = field(default_factory=list)
+    transition_prompts: List[str] = field(default_factory=list)
+    deck_title: str = "Untitled Deck"
+
     # Conversation
     conversation: ConversationManager = field(default=None)  # type: ignore[assignment]
 
-    # UI elements
+    # UI elements - Viewer
     slide_image: Optional[ui.image] = None  # type: ignore[type-arg]
     slide_video: Optional[ui.video] = None  # type: ignore[type-arg]
     play_button: Optional[ui.button] = None  # type: ignore[type-arg]
@@ -784,18 +897,27 @@ class UIState:
     deck_status_label: Optional[ui.label] = None  # type: ignore[type-arg]
     counter_label: Optional[ui.label] = None  # type: ignore[type-arg]
     thumbnail_row: Optional[ui.row] = None  # type: ignore[type-arg]
+    
+    # UI elements - Chat
     chat_column: Optional[ui.column] = None  # type: ignore[type-arg]
     input_box: Optional[ui.input] = None  # type: ignore[type-arg]
     chat_spinner: Optional[ui.spinner] = None  # type: ignore[type-arg]
+    pending_images: List[Path] = field(default_factory=list)
+    
+    # UI elements - Prompt Editor
+    prompt_editor_container: Optional[ui.element] = None  # type: ignore[type-arg]
+    slide_prompt_cards: List[ui.element] = field(default_factory=list)  # type: ignore[type-arg]
+    slide_prompt_textareas: List[ui.textarea] = field(default_factory=list)  # type: ignore[type-arg]
+    transition_prompt_textareas: List[ui.textarea] = field(default_factory=list)  # type: ignore[type-arg]
+    generate_progress_label: Optional[ui.label] = None  # type: ignore[type-arg]
+    generate_progress_bar: Optional[ui.linear_progress] = None  # type: ignore[type-arg]
+    
+    # UI elements - Dialogs
     export_dialog: Optional[ui.dialog] = None  # type: ignore[type-arg]
     export_progress_label: Optional[ui.label] = None  # type: ignore[type-arg]
     export_progress_bar: Optional[ui.linear_progress] = None  # type: ignore[type-arg]
-    generate_dialog: Optional[ui.dialog] = None  # type: ignore[type-arg]
-    generate_progress_label: Optional[ui.label] = None  # type: ignore[type-arg]
-    generate_progress_bar: Optional[ui.linear_progress] = None  # type: ignore[type-arg]
     settings_dialog: Optional[ui.dialog] = None  # type: ignore[type-arg]
     settings_error_label: Optional[ui.label] = None  # type: ignore[type-arg]
-    pending_images: List[Path] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -895,7 +1017,7 @@ def _render_thumbnails(state: UIState) -> None:
         for idx, thumb_path in enumerate(state.thumbnails):
             url = _asset_url(state, str(thumb_path))
             img = ui.image(url).classes("thumb-card").style("object-fit: cover;")
-            img.on("click", lambda e, i=idx: asyncio.create_task(_go_to_index(state, i)))
+            img.on("click", lambda e, i=idx: _go_to_index(state, i))
             state.thumbnail_images.append(img)
 
     _highlight_thumbnails(state)
@@ -1035,9 +1157,17 @@ async def _go_to_index(state: UIState, index: int) -> None:
         return
     if 0 <= index < state.deck.slide_count():
         state.current_index = index
+        state.selected_slide_index = index
         state.playback_phase = "slide"
         state.playback_elapsed = 0.0
         await _update_slide_viewer(state)
+        
+        # Sync with prompt editor selection
+        for i, card in enumerate(state.slide_prompt_cards):
+            if i == index:
+                card.classes("prompt-card selected", remove="prompt-card")
+            else:
+                card.classes("prompt-card", remove="prompt-card selected")
 
 
 async def _toggle_play(state: UIState) -> None:
@@ -1245,25 +1375,22 @@ def _build_export_dialog(state: UIState) -> ui.dialog:  # type: ignore[override]
                 state.export_progress_label.text = progress.message
                 state.export_progress_bar.value = progress.fraction
 
-        async def run_export() -> None:
-            try:
-                await export_deck_to_mp4(
-                    state.deck, export_settings, state.project_root,  # type: ignore[arg-type]
-                    lambda p: asyncio.create_task(progress_cb(p)),
-                )
-            except Exception as exc:  # pragma: no cover - defensive
-                LOG.exception("Export failed: %s", exc)
-                if state.export_progress_label:
-                    state.export_progress_label.text = f"Export failed: {exc}"
-                ui.notify(f"Export failed: {exc}", type="negative")
-                return
+        try:
+            await export_deck_to_mp4(
+                state.deck, export_settings, state.project_root,  # type: ignore[arg-type]
+                progress_cb,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            LOG.exception("Export failed: %s", exc)
+            if state.export_progress_label:
+                state.export_progress_label.text = f"Export failed: {exc}"
+            ui.notify(f"Export failed: {exc}", type="negative")
+            return
 
-            if state.export_progress_label and state.export_progress_bar:
-                state.export_progress_label.text = f"Export complete: {output_path}"
-                state.export_progress_bar.value = 1.0
-            ui.notify("Export complete", type="positive")
-
-        asyncio.create_task(run_export())
+        if state.export_progress_label and state.export_progress_bar:
+            state.export_progress_label.text = f"Export complete: {output_path}"
+            state.export_progress_bar.value = 1.0
+        ui.notify("Export complete", type="positive")
 
     with dialog, ui.card().classes("w-[480px] p-6"):
         with ui.row().classes("items-center gap-3 mb-5"):
@@ -1312,83 +1439,206 @@ def _build_export_dialog(state: UIState) -> ui.dialog:  # type: ignore[override]
 
         with ui.row().classes("justify-end mt-5 gap-2"):
             ui.button("Cancel", on_click=dialog.close).classes("btn-ghost").props("flat")
-            ui.button("Export", icon="download", on_click=lambda: asyncio.create_task(do_export())).classes("btn-accent").props("unelevated")
+            ui.button("Export", icon="download", on_click=do_export).classes("btn-accent").props("unelevated")
 
     return dialog
 
 
-def _build_generation_dialog(state: UIState) -> ui.dialog:  # type: ignore[override]
-    dialog = ui.dialog()
-    prompt_inputs: List[ui.textarea] = []
-    transition_inputs: List[ui.textarea] = []
-    include_transitions_checkbox: Optional[ui.checkbox] = None
+# ---------------------------------------------------------------------------
+# Prompt Editor Helpers
+# ---------------------------------------------------------------------------
 
-    def populate_fields() -> None:
-        prompt_inputs.clear()
-        transition_inputs.clear()
-        slides_column.clear()
-        transitions_column.clear()
-        if not state.deck:
-            with slides_column:
-                ui.label("Load a deck first to generate media").style("color: var(--error);")
-            return
-        with slides_column:
-            for idx, _ in enumerate(state.deck.slides):
-                ta = ui.textarea(
-                    f"Slide {idx + 1}",
-                    placeholder="Describe foreground, background, composition, key elements, color palette...",
-                ).classes("w-full").props("autogrow rows=2")
-                prompt_inputs.append(ta)
-        if state.deck.slide_count() > 1:
-            with transitions_column:
-                for idx in range(state.deck.slide_count() - 1):
-                    ta = ui.textarea(
-                        f"Transition {idx + 1} → {idx + 2}",
-                        placeholder="Describe how elements evolve between slides.",
-                    ).classes("w-full").props("autogrow rows=2")
-                    transition_inputs.append(ta)
 
-    async def do_generate() -> None:
-        if not state.deck:
-            ui.notify("Load a deck first", type="warning")
-            return
-        slide_prompts = [ta.value or f"Highly visual slide {i+1}" for i, ta in enumerate(prompt_inputs)]
-        include_transitions = include_transitions_checkbox.value if include_transitions_checkbox else True
-        trans_prompts = []
-        if include_transitions and state.deck.slide_count() > 1:
-            trans_prompts = [
-                ta.value or f"Smoothly morph slide {i+1} into slide {i+2}"
-                for i, ta in enumerate(transition_inputs)
-            ]
-
-        if state.generate_progress_label and state.generate_progress_bar:
-            state.generate_progress_label.text = "Starting generation..."
-            state.generate_progress_bar.value = 0.0
-
-        async def progress_cb(progress: ExportProgress) -> None:
-            if state.generate_progress_label and state.generate_progress_bar:
-                state.generate_progress_label.text = progress.message
-                state.generate_progress_bar.value = progress.fraction
-
-        try:
-            new_deck = await generate_deck_media(
-                deck=state.deck,
-                slide_prompts=slide_prompts,
-                transition_prompts=trans_prompts,
-                cfg=state.config,
-                project_root=state.project_root,
-                deck_path=state.deck_path or state.project_root / "deck.json",
-                include_transitions=include_transitions,
-                progress_cb=lambda p: asyncio.create_task(progress_cb(p)),
+def _refresh_prompt_editor(state: UIState) -> None:
+    """Rebuild the prompt editor panel from current state."""
+    if not state.prompt_editor_container:
+        return
+    
+    state.prompt_editor_container.clear()
+    state.slide_prompt_cards.clear()
+    state.slide_prompt_textareas.clear()
+    state.transition_prompt_textareas.clear()
+    
+    with state.prompt_editor_container:
+        if not state.slide_prompts:
+            ui.label("Chat with the assistant to design your deck. Prompts will appear here when ready.").style(
+                "color: var(--text-muted); font-size: 0.875rem; padding: 1rem;"
             )
-        except Exception as exc:  # pragma: no cover - defensive
-            LOG.exception("Generation failed: %s", exc)
-            ui.notify(f"Generation failed: {exc}", type="negative")
-            if state.generate_progress_label:
-                state.generate_progress_label.text = f"Failed: {exc}"
             return
+        
+        for idx, prompt in enumerate(state.slide_prompts):
+            # Slide card
+            card_classes = "prompt-card"
+            if idx == state.selected_slide_index:
+                card_classes += " selected"
+            
+            with ui.element("div").classes(card_classes) as card:
+                state.slide_prompt_cards.append(card)
+                
+                # Make card clickable to select
+                card.on("click", lambda e, i=idx: _select_slide(state, i))
+                
+                with ui.element("div").classes("prompt-card-header"):
+                    ui.label(f"Slide {idx + 1}").classes("prompt-card-title")
+                    with ui.element("div").classes("prompt-card-actions"):
+                        ui.button(
+                            icon="refresh",
+                            on_click=lambda e, i=idx: _regenerate_slide(state, i)
+                        ).props("flat dense round size=xs").style("color: var(--text-muted);")
+                
+                ta = ui.textarea(value=prompt).classes("w-full prompt-textarea").props("autogrow rows=2 borderless")
+                ta.on("change", lambda e, i=idx: _update_slide_prompt(state, i, e.value))
+                state.slide_prompt_textareas.append(ta)
+                
+                # Show thumbnail if slide exists
+                if state.deck and idx < len(state.deck.slides):
+                    slide = state.deck.slides[idx]
+                    if slide.image:
+                        try:
+                            thumb_url = _asset_url(state, slide.image)
+                            ui.image(thumb_url).classes("prompt-thumbnail")
+                        except Exception:
+                            pass
+            
+            # Transition card (between slides)
+            if idx < len(state.slide_prompts) - 1:
+                trans_prompt = state.transition_prompts[idx] if idx < len(state.transition_prompts) else ""
+                with ui.element("div").classes("transition-card"):
+                    ui.label(f"Transition {idx + 1} → {idx + 2}").classes("transition-card-label")
+                    ta = ui.textarea(
+                        value=trans_prompt,
+                        placeholder="Describe the motion between slides..."
+                    ).classes("w-full").props("autogrow rows=1 borderless dense").style("font-size: 0.8125rem;")
+                    ta.on("change", lambda e, i=idx: _update_transition_prompt(state, i, e.value))
+                    state.transition_prompt_textareas.append(ta)
 
-        # Refresh deck and thumbnails
+
+async def _select_slide(state: UIState, index: int) -> None:
+    """Select a slide in the prompt editor and sync with viewer."""
+    state.selected_slide_index = index
+    state.current_index = index
+    
+    # Update card styling
+    for i, card in enumerate(state.slide_prompt_cards):
+        if i == index:
+            card.classes("prompt-card selected", remove="prompt-card")
+        else:
+            card.classes("prompt-card", remove="prompt-card selected")
+    
+    # Update viewer
+    await _update_slide_viewer(state)
+    _highlight_thumbnails(state)
+
+
+def _update_slide_prompt(state: UIState, index: int, value: str) -> None:
+    """Update a slide prompt in state."""
+    if index < len(state.slide_prompts):
+        state.slide_prompts[index] = value
+
+
+def _update_transition_prompt(state: UIState, index: int, value: str) -> None:
+    """Update a transition prompt in state."""
+    while len(state.transition_prompts) <= index:
+        state.transition_prompts.append("")
+    state.transition_prompts[index] = value
+
+
+async def _regenerate_slide(state: UIState, index: int) -> None:
+    """Regenerate a single slide."""
+    from .services import generate_slide_image, generate_slide_image_edit
+    
+    if index >= len(state.slide_prompts):
+        ui.notify("No prompt for this slide", type="warning")
+        return
+    
+    prompt = state.slide_prompts[index]
+    if not prompt.strip():
+        ui.notify("Please enter a prompt first", type="warning")
+        return
+    
+    ui.notify(f"Regenerating slide {index + 1}...", type="info")
+    
+    try:
+        dest = state.project_root / "slides" / f"slide{index + 1}.png"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Use reference image if not first slide
+        if index > 0 and state.deck and index - 1 < len(state.deck.slides):
+            ref_path = state.project_root / state.deck.slides[index - 1].image
+            if ref_path.exists():
+                await generate_slide_image_edit(
+                    prompt=prompt,
+                    reference_image=ref_path,
+                    cfg=state.config,
+                    dest=dest,
+                )
+            else:
+                await generate_slide_image(prompt=prompt, cfg=state.config, dest=dest)
+        else:
+            await generate_slide_image(prompt=prompt, cfg=state.config, dest=dest)
+        
+        # Update deck
+        if not state.deck:
+            state.deck = Deck(slides=[])
+        
+        while len(state.deck.slides) <= index:
+            state.deck.slides.append(Slide(image=f"slides/slide{len(state.deck.slides) + 1}.png"))
+        
+        state.deck.slides[index].image = f"slides/slide{index + 1}.png"
+        
+        # Refresh thumbnails and viewer
+        loop = asyncio.get_event_loop()
+        thumbs = await loop.run_in_executor(None, lambda: generate_thumbnails(state.deck, state.project_root))
+        state.thumbnails = thumbs
+        _render_thumbnails(state)
+        state.current_index = index
+        await _update_slide_viewer(state)
+        _refresh_prompt_editor(state)
+        
+        ui.notify(f"Slide {index + 1} regenerated!", type="positive")
+    except Exception as exc:
+        LOG.exception("Failed to regenerate slide: %s", exc)
+        ui.notify(f"Failed: {exc}", type="negative")
+
+
+async def _generate_all(state: UIState) -> None:
+    """Generate all slides and transitions."""
+    if not state.slide_prompts:
+        ui.notify("No prompts to generate. Chat with the assistant first.", type="warning")
+        return
+    
+    # Create deck structure if needed
+    if not state.deck:
+        state.deck = Deck(slides=[
+            Slide(image=f"slides/slide{i + 1}.png")
+            for i in range(len(state.slide_prompts))
+        ])
+        state.deck_path = state.project_root / "deck.json"
+    
+    if state.generate_progress_label:
+        state.generate_progress_label.text = "Starting generation..."
+    if state.generate_progress_bar:
+        state.generate_progress_bar.value = 0.0
+        state.generate_progress_bar.visible = True
+    
+    def progress_cb(progress: ExportProgress) -> None:
+        if state.generate_progress_label:
+            state.generate_progress_label.text = progress.message
+        if state.generate_progress_bar:
+            state.generate_progress_bar.value = progress.fraction
+    
+    try:
+        new_deck = await generate_deck_media(
+            deck=state.deck,
+            slide_prompts=state.slide_prompts,
+            transition_prompts=state.transition_prompts if state.include_transitions else [],
+            cfg=state.config,
+            project_root=state.project_root,
+            deck_path=state.deck_path or state.project_root / "deck.json",
+            include_transitions=state.include_transitions,
+            progress_cb=progress_cb,
+        )
+        
         state.deck = new_deck
         state.current_index = 0
         loop = asyncio.get_event_loop()
@@ -1396,35 +1646,37 @@ def _build_generation_dialog(state: UIState) -> ui.dialog:  # type: ignore[overr
         state.thumbnails = thumbs
         _render_thumbnails(state)
         await _update_slide_viewer(state)
-        await _load_deck_into_state(state)
-        ui.notify("Generation complete", type="positive")
+        _refresh_prompt_editor(state)
+        
+        ui.notify("Generation complete!", type="positive")
+    except Exception as exc:
+        LOG.exception("Generation failed: %s", exc)
+        ui.notify(f"Generation failed: {exc}", type="negative")
+        if state.generate_progress_label:
+            state.generate_progress_label.text = f"Failed: {exc}"
 
-    with dialog, ui.card().classes("w-[580px] p-6"):
-        with ui.row().classes("items-center gap-3 mb-5"):
-            ui.icon("auto_fix_high", size="sm").style("color: var(--accent);")
-            ui.label("Generate Media").style("font-size: 1.125rem; font-weight: 600;")
 
-        include_transitions_checkbox = ui.checkbox(
-            "Include animated transitions", value=True if state.include_transitions else False
-        ).classes("mb-3")
-
-        with ui.column().classes("gap-3 w-full"):
-            ui.label("Slide Prompts").style("font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;")
-            slides_column = ui.scroll_area().classes("w-full").style("max-height: 180px;")
-
-            ui.label("Transition Prompts").style("font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.5rem;")
-            transitions_column = ui.scroll_area().classes("w-full").style("max-height: 140px;")
-
-        with ui.column().classes("w-full mt-5 gap-1"):
-            state.generate_progress_label = ui.label("").style("font-size: 0.75rem; color: var(--text-muted);")
-            state.generate_progress_bar = ui.linear_progress(value=0.0)
-
-        with ui.row().classes("justify-end mt-5 gap-2"):
-            ui.button("Cancel", on_click=dialog.close).classes("btn-ghost").props("flat")
-            ui.button("Generate", icon="auto_awesome", on_click=lambda: asyncio.create_task(do_generate())).classes("btn-accent").props("unelevated")
-
-    dialog.on("show", lambda e: populate_fields())
-    return dialog
+def _on_outline_ready(state: UIState, outline: DeckOutline) -> None:
+    """Called when the LLM produces a deck outline."""
+    state.deck_title = outline.title
+    state.slide_prompts = list(outline.slide_prompts)
+    state.transition_prompts = list(outline.transition_prompts)
+    
+    # Create placeholder deck
+    state.deck = Deck(slides=[
+        Slide(image=f"slides/slide{i + 1}.png")
+        for i in range(len(outline.slide_prompts))
+    ])
+    state.deck_path = state.project_root / "deck.json"
+    
+    # Refresh the prompt editor
+    _refresh_prompt_editor(state)
+    
+    # Update status
+    if state.deck_status_label:
+        state.deck_status_label.text = f"Outline ready: {len(outline.slide_prompts)} slides"
+    
+    ui.notify(f"Outline ready! {len(outline.slide_prompts)} slides. Review prompts and click Generate All.", type="positive")
 
 
 # ---------------------------------------------------------------------------
@@ -1433,7 +1685,7 @@ def _build_generation_dialog(state: UIState) -> ui.dialog:  # type: ignore[overr
 
 
 def create_main_ui(state: UIState) -> None:
-    """Compose the NiceGUI interface."""
+    """Compose the NiceGUI interface with three-panel layout."""
 
     # Inject custom CSS
     ui.add_head_html(f"<style>{CUSTOM_CSS}</style>")
@@ -1441,14 +1693,15 @@ def create_main_ui(state: UIState) -> None:
     llm_service = LLMService(state.config)
     conversation = ConversationManager(llm_service)
     state.conversation = conversation
+    
+    # Register callback for when outline is extracted from chat
+    conversation.on_outline_ready(lambda outline: _on_outline_ready(state, outline))
 
     # Build dialogs
     export_dialog = _build_export_dialog(state)
     settings_dialog = _build_settings_dialog(state)
-    generate_dialog = _build_generation_dialog(state)
     state.export_dialog = export_dialog
     state.settings_dialog = settings_dialog
-    state.generate_dialog = generate_dialog
 
     # Header
     with ui.header().classes("app-header justify-between items-center"):
@@ -1460,38 +1713,12 @@ def create_main_ui(state: UIState) -> None:
 
         with ui.row().classes("items-center gap-2"):
             ui.button(icon="settings", on_click=settings_dialog.open).classes("btn-ghost").props("flat round")
-            ui.button("Generate", icon="auto_fix_high", on_click=generate_dialog.open).classes("btn-ghost").props("flat")
             ui.button("Export", icon="download", on_click=export_dialog.open).classes("btn-accent").props("unelevated")
 
-    # Main content
+    # Main content - Three Panel Layout
     with ui.element("div").classes("main-container"):
-        # Left: Viewer
-        with ui.element("div").classes("viewer-section"):
-            # Slide display
-            with ui.element("div").classes("slide-frame"):
-                img = ui.image().classes("slide-display")
-                vid = ui.video("").classes("slide-display")
-                vid.visible = False
-                vid.props("controls=false muted")
-                state.slide_image = img
-                state.slide_video = vid
-
-            # Transport controls
-            with ui.element("div").classes("transport-controls"):
-                ui.button(on_click=lambda: asyncio.create_task(_go_first(state))).props("icon=skip_previous flat round").classes("transport-btn")
-                ui.button(on_click=lambda: asyncio.create_task(_go_prev(state))).props("icon=chevron_left flat round").classes("transport-btn")
-                state.play_button = ui.button(on_click=lambda: asyncio.create_task(_toggle_play(state))).props("icon=play_arrow round unelevated").classes("play-btn")
-                ui.button(on_click=lambda: asyncio.create_task(_stop_playback(state))).props("icon=stop flat round").classes("transport-btn")
-                ui.button(on_click=lambda: asyncio.create_task(_go_next(state))).props("icon=chevron_right flat round").classes("transport-btn")
-                ui.button(on_click=lambda: asyncio.create_task(_go_last(state))).props("icon=skip_next flat round").classes("transport-btn")
-                state.counter_label = ui.label(_slide_counter_text(state)).classes("slide-counter")
-
-            # Thumbnail rail
-            with ui.row().classes("thumb-rail") as thumb_row:
-                state.thumbnail_row = thumb_row
-                ui.label("No slides yet").classes("empty-hint")
-
-        # Right: Chat
+        
+        # LEFT: Chat Panel
         with ui.element("div").classes("chat-section"):
             with ui.element("div").classes("chat-header"):
                 ui.icon("forum", size="xs").style("color: var(--text-muted);")
@@ -1529,7 +1756,7 @@ def create_main_ui(state: UIState) -> None:
 
                 # Mode toggle
                 with ui.element("div").classes("mode-pills"):
-                    mode_toggle = ui.radio(
+                    ui.radio(
                         ["Slides", "Slides + Transitions"],
                         value="Slides + Transitions" if state.include_transitions else "Slides",
                         on_change=lambda e: setattr(state, "include_transitions", e.value == "Slides + Transitions"),
@@ -1538,7 +1765,7 @@ def create_main_ui(state: UIState) -> None:
                 # Input row
                 with ui.element("div").classes("input-row"):
                     ui.upload(on_upload=handle_upload, multiple=True).props("accept=image/* flat dense").classes("upload-btn").style("width: 36px; height: 36px;")
-                    input_box = ui.input(placeholder="What deck would you like to create?").props("borderless dense").classes("chat-input")
+                    input_box = ui.textarea(placeholder="Describe your presentation... (Enter to send, Shift+Enter for newline)").props("autogrow rows=1 borderless dense").classes("chat-input")
                     state.input_box = input_box
                     state.chat_spinner = ui.spinner("dots", size="sm")
                     state.chat_spinner.visible = False
@@ -1569,9 +1796,70 @@ def create_main_ui(state: UIState) -> None:
                         if state.chat_spinner:
                             state.chat_spinner.visible = False
 
-                    ui.button(icon="send", on_click=lambda: asyncio.create_task(send_message())).classes("send-btn").props("unelevated round")
+                    # Enter to send, Shift+Enter for newline
+                    async def handle_keydown(e) -> None:
+                        if e.args.get("key") == "Enter" and not e.args.get("shiftKey"):
+                            await send_message()
+                    
+                    input_box.on("keydown.enter.prevent", handle_keydown)
+                    
+                    ui.button(icon="send", on_click=send_message).classes("send-btn").props("unelevated round")
 
-    # Playback timer (global)
+        # CENTER: Prompt Editor Panel
+        with ui.element("div").classes("prompt-editor-section"):
+            with ui.element("div").classes("prompt-editor-header"):
+                with ui.row().classes("items-center gap-2"):
+                    ui.icon("edit_note", size="xs").style("color: var(--text-muted);")
+                    ui.label("Prompt Editor").classes("prompt-editor-title")
+                ui.label(f"{len(state.slide_prompts)} slides").style("font-size: 0.75rem; color: var(--text-muted);")
+            
+            # Scrollable prompt cards
+            with ui.scroll_area().classes("prompt-editor-content") as editor_scroll:
+                state.prompt_editor_container = ui.column().classes("w-full")
+                _refresh_prompt_editor(state)
+            
+            # Footer with generate button and progress
+            with ui.element("div").classes("prompt-editor-footer"):
+                with ui.column().classes("w-full gap-2"):
+                    with ui.row().classes("items-center gap-2"):
+                        state.generate_progress_label = ui.label("").style("font-size: 0.75rem; color: var(--text-muted); flex: 1;")
+                    state.generate_progress_bar = ui.linear_progress(value=0.0).style("height: 3px;")
+                    state.generate_progress_bar.visible = False
+                    
+                    with ui.row().classes("justify-end gap-2 w-full"):
+                        ui.button(
+                            "Generate All", 
+                            icon="auto_awesome",
+                            on_click=lambda: _generate_all(state)
+                        ).classes("btn-accent").props("unelevated")
+
+        # RIGHT: Slide Viewer Panel  
+        with ui.element("div").classes("viewer-section"):
+            # Slide display
+            with ui.element("div").classes("slide-frame"):
+                img = ui.image().classes("slide-display")
+                vid = ui.video("").classes("slide-display")
+                vid.visible = False
+                vid.props("controls=false muted")
+                state.slide_image = img
+                state.slide_video = vid
+
+            # Transport controls
+            with ui.element("div").classes("transport-controls"):
+                ui.button(on_click=lambda: _go_first(state)).props("icon=skip_previous flat round").classes("transport-btn")
+                ui.button(on_click=lambda: _go_prev(state)).props("icon=chevron_left flat round").classes("transport-btn")
+                state.play_button = ui.button(on_click=lambda: _toggle_play(state)).props("icon=play_arrow round unelevated").classes("play-btn")
+                ui.button(on_click=lambda: _stop_playback(state)).props("icon=stop flat round").classes("transport-btn")
+                ui.button(on_click=lambda: _go_next(state)).props("icon=chevron_right flat round").classes("transport-btn")
+                ui.button(on_click=lambda: _go_last(state)).props("icon=skip_next flat round").classes("transport-btn")
+                state.counter_label = ui.label(_slide_counter_text(state)).classes("slide-counter")
+
+            # Thumbnail rail (clickable to select slides)
+            with ui.row().classes("thumb-rail") as thumb_row:
+                state.thumbnail_row = thumb_row
+                ui.label("No slides yet").classes("empty-hint")
+
+    # Playback timer
     async def on_timer() -> None:
         await _playback_tick(state)
 
@@ -1580,7 +1868,7 @@ def create_main_ui(state: UIState) -> None:
     # Initial assistant message
     intro = ChatMessage(
         role="assistant",
-        content="Hi! I'm here to help you create a beautiful visual deck.\n\nTell me about your presentation—what's it for, who's the audience, and what vibe are you going for?",
+        content="Hi! I'm here to help you create a beautiful visual deck.\n\nTell me about your presentation - what's it for, who's the audience, and what vibe are you going for?",
     )
     _append_chat_message(state, intro)
 

@@ -76,6 +76,20 @@ class ChatMessage(BaseModel):
     )
 
 
+class DeckOutline(BaseModel):
+    """Structured outline extracted from chat conversation.
+    
+    This holds the slide and transition prompts that the LLM generates
+    during the design conversation.
+    """
+    title: str = Field(default="Untitled Deck", description="Title of the deck")
+    slide_prompts: List[str] = Field(default_factory=list, description="Visual prompts for each slide")
+    transition_prompts: List[str] = Field(default_factory=list, description="Prompts for transitions between slides")
+    
+    def slide_count(self) -> int:
+        return len(self.slide_prompts)
+
+
 class ExportSettings(BaseModel):
     width: int = 1920
     height: int = 1080

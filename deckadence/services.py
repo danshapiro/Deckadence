@@ -23,7 +23,7 @@ from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 from .config import AppConfig
 from .costs import get_tracker
 from .prompts import get_prompt, load_prompts
-from .models import ChatMessage, ConversationPhase, Deck, ExportSettings, Slide
+from .models import ChatMessage, ConversationPhase, Deck, DeckOutline, ExportSettings, Slide
 
 LOG = logging.getLogger(__name__)
 VALID_2K_RESOLUTIONS: set[Tuple[int, int]] = {(1920, 1080), (2048, 1152)}
@@ -954,12 +954,17 @@ def _resolve_path(path_str: str, project_root: Path) -> Path:
 class ConversationState:
     phase: ConversationPhase = ConversationPhase.ONBOARDING
     messages: List[ChatMessage] = field(default_factory=list)
+    outline: Optional[DeckOutline] = None
 
     def add_user_message(self, message: ChatMessage) -> None:
         self.messages.append(message)
 
     def add_assistant_message(self, message: ChatMessage) -> None:
         self.messages.append(message)
+    
+    def set_outline(self, outline: DeckOutline) -> None:
+        """Store the deck outline extracted from the LLM conversation."""
+        self.outline = outline
 
 
 class ConversationManager:
@@ -972,14 +977,53 @@ class ConversationManager:
     def __init__(self, llm: LLMService):
         self.llm = llm
         self.state = ConversationState()
+        self._outline_callbacks: List[Callable[[DeckOutline], None]] = []
+
+    def on_outline_ready(self, callback: Callable[[DeckOutline], None]) -> None:
+        """Register a callback to be called when an outline is extracted."""
+        self._outline_callbacks.append(callback)
 
     async def handle_user_message(self, message: ChatMessage) -> ChatMessage:
         self.state.add_user_message(message)
         use_search = self._should_use_web_search(message.content)
         reply = await self.llm.chat(self.state.messages, self.state.phase, allow_web_search=use_search)
         self.state.add_assistant_message(reply)
+        
+        # Try to extract JSON outline from the response
+        outline = self._extract_outline_from_response(reply.content)
+        if outline:
+            self.state.set_outline(outline)
+            for callback in self._outline_callbacks:
+                try:
+                    callback(outline)
+                except Exception as e:
+                    LOG.exception("Outline callback failed: %s", e)
+        
         self._maybe_advance_phase(message.content)
         return reply
+
+    def _extract_outline_from_response(self, content: str) -> Optional[DeckOutline]:
+        """Extract a DeckOutline from a JSON block in the LLM response."""
+        # Look for ```json ... ``` blocks
+        import re
+        json_pattern = r'```json\s*([\s\S]*?)\s*```'
+        matches = re.findall(json_pattern, content)
+        
+        for match in matches:
+            try:
+                data = json.loads(match.strip())
+                # Validate it has the expected structure
+                if "slide_prompts" in data and isinstance(data["slide_prompts"], list):
+                    return DeckOutline(
+                        title=data.get("title", "Untitled Deck"),
+                        slide_prompts=data["slide_prompts"],
+                        transition_prompts=data.get("transition_prompts", [])
+                    )
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                LOG.debug("Failed to parse JSON outline: %s", e)
+                continue
+        
+        return None
 
     def _maybe_advance_phase(self, content: str) -> None:
         lowered = content.lower()
