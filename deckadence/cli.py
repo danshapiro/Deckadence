@@ -27,6 +27,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 from .config import AppConfig, ConfigManager, DEFAULT_CONFIG_PATH
+from .costs import get_tracker, reset_tracker
 from .models import Deck, ExportSettings, Slide
 
 # Default config path as string for Typer compatibility
@@ -302,6 +303,16 @@ def generate(
     ),
     output_dir: str = typer.Option("output", "--output", "-o", help="Output directory for generated project."),
     no_transitions: bool = typer.Option(False, "--no-transitions", help="Skip generating transition videos."),
+    image_model: Optional[str] = typer.Option(
+        None,
+        "--image-model", "-I",
+        help="Image model: 'nano_banana' (faster, $0.04) or 'nano_banana_pro' (quality, $0.14).",
+    ),
+    kling_model: Optional[str] = typer.Option(
+        None,
+        "--kling-model", "-K",
+        help="Kling model: 'standard' (720p, cheaper) or 'pro' (1080p, quality).",
+    ),
     config_path: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging."),
 ) -> None:
@@ -314,6 +325,11 @@ def generate(
     
     2. Prompts mode (--prompts): Provide explicit prompts via JSON file.
        Example: deckadence generate --project ./mydeck --prompts prompts.json
+    
+    Model options:
+    
+    - Image models: nano_banana (faster, ~$0.04/image) or nano_banana_pro (quality, ~$0.14/image)
+    - Kling models: standard (720p, ~$0.065/sec) or pro (1080p, ~$0.095/sec)
     """
     _configure_logging(verbose)
     
@@ -322,6 +338,19 @@ def generate(
     cfg_path = config_path or _DEFAULT_CONFIG
     config_manager = ConfigManager(cfg_path)
     cfg = config_manager.load()
+    
+    # Override model settings from CLI options
+    if image_model:
+        if image_model not in ("nano_banana", "nano_banana_pro"):
+            rprint(f"[red]Error:[/] Invalid image model '{image_model}'. Use 'nano_banana' or 'nano_banana_pro'.")
+            raise typer.Exit(1)
+        cfg.image_model = image_model
+    
+    if kling_model:
+        if kling_model not in ("standard", "pro"):
+            rprint(f"[red]Error:[/] Invalid Kling model '{kling_model}'. Use 'standard' or 'pro'.")
+            raise typer.Exit(1)
+        cfg.kling_model = kling_model
 
     # Check required API keys
     if not cfg.gemini_api_key:
@@ -446,6 +475,9 @@ def generate(
         def progress_cb(p: ExportProgress) -> None:
             progress.update(task, completed=int(p.fraction * 100), description=p.message)
 
+        # Reset cost tracker for this generation session
+        reset_tracker()
+        
         try:
             asyncio.run(generate_deck_media(
                 deck=deck,
@@ -462,6 +494,18 @@ def generate(
             rprint(f"[red]Generation failed:[/] {e}")
             raise typer.Exit(1)
 
+    # Display cost summary
+    tracker = get_tracker()
+    if tracker.entries:
+        rprint("\n[bold]API Costs:[/]")
+        cost_table = Table(show_header=True, header_style="bold")
+        cost_table.add_column("Service", style="cyan")
+        cost_table.add_column("Cost", justify="right")
+        cost_table.add_row("Gemini (images)", f"${tracker.gemini_cost:.4f}")
+        cost_table.add_row("Kling (videos)", f"${tracker.kling_cost:.4f}")
+        cost_table.add_row("[bold]Total[/]", f"[bold]${tracker.total_cost:.4f}[/]")
+        rprint(cost_table)
+    
     rprint(f"\n[green]✓[/] Generation complete! Project saved to [bold]{project_root}[/]")
 
 
@@ -651,6 +695,7 @@ def config_show(
     table.add_row("Gemini API Key", mask_key(cfg.gemini_api_key), gemini_source)
     table.add_row("fal.ai API Key", mask_key(cfg.fal_api_key), fal_source)
     table.add_row("LiteLLM Model", cfg.lite_llm_model, "[dim]config[/]")
+    table.add_row("Image Model", cfg.image_model or "nano_banana_pro", "[dim]config[/]")
     table.add_row("Kling Model", cfg.kling_model or "pro", "[dim]config[/]")
     table.add_row("Default Resolution", cfg.default_resolution, "[dim]config[/]")
     table.add_row("Slide Duration", f"{cfg.default_slide_duration}s", "[dim]config[/]")
@@ -673,7 +718,8 @@ def config_set(
     
     - gemini-api-key: Google Gemini API key
     - fal-api-key: fal.ai API key
-    - kling-model: 'standard' or 'pro'
+    - image-model: 'nano_banana' (faster, $0.04) or 'nano_banana_pro' (quality, $0.14)
+    - kling-model: 'standard' (720p) or 'pro' (1080p)
     - resolution: Default export resolution (e.g. '1920x1080')
     - slide-duration: Default slide duration in seconds
     - transition-duration: Default transition duration in seconds
@@ -687,6 +733,7 @@ def config_set(
     key_map = {
         "gemini-api-key": "gemini_api_key",
         "fal-api-key": "fal_api_key",
+        "image-model": "image_model",
         "kling-model": "kling_model",
         "resolution": "default_resolution",
         "slide-duration": "default_slide_duration",
@@ -710,6 +757,10 @@ def config_set(
             raise typer.Exit(1)
 
     # Validation
+    if attr_name == "image_model" and value not in ("nano_banana", "nano_banana_pro"):
+        rprint(f"[red]Invalid value:[/] {value} (must be 'nano_banana' or 'nano_banana_pro')")
+        raise typer.Exit(1)
+
     if attr_name == "kling_model" and value not in ("standard", "pro"):
         rprint(f"[red]Invalid value:[/] {value} (must be 'standard' or 'pro')")
         raise typer.Exit(1)

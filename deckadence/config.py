@@ -33,6 +33,10 @@ class FileConfig(BaseModel):
         default="pro",
         description="Kling 2.5 model to use: 'standard' (720p) or 'pro' (1080p).",
     )
+    image_model: str = Field(
+        default="nano_banana_pro",
+        description="Image generation model: 'nano_banana' (faster) or 'nano_banana_pro' (higher quality).",
+    )
 
     default_resolution: str = Field(
         default="1920x1080",
@@ -63,6 +67,13 @@ class FileConfig(BaseModel):
     def validate_kling_model(cls, value: str) -> str:
         if value not in {"standard", "pro"}:
             raise ValueError("kling_model must be 'standard' or 'pro'")
+        return value
+
+    @field_validator("image_model")
+    @classmethod
+    def validate_image_model(cls, value: str) -> str:
+        if value not in {"nano_banana", "nano_banana_pro"}:
+            raise ValueError("image_model must be 'nano_banana' or 'nano_banana_pro'")
         return value
 
 

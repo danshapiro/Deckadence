@@ -1,0 +1,37 @@
+# API Pricing for Deckadence
+# Last updated: 2024-12
+#
+# These costs are estimates and may change. Check the official pricing pages:
+# - Gemini: https://ai.google.dev/pricing
+# - fal.ai Kling: https://fal.ai/pricing
+#
+# All prices are in USD.
+
+# -----------------------------------------------------------------------------
+# Image Generation (Gemini / Nano Banana)
+# -----------------------------------------------------------------------------
+gemini:
+  # Per-image generation costs
+  # nano_banana: Faster, lower cost (Gemini 2.0 Flash experimental)
+  # nano_banana_pro: Higher quality (Gemini 3 Pro Image)
+  nano_banana: 0.04
+  nano_banana_pro: 0.14
+
+# -----------------------------------------------------------------------------
+# Video Generation (fal.ai Kling 2.5 Turbo)
+# -----------------------------------------------------------------------------
+# Pricing based on fal.ai output-based billing (per video second)
+# Per-second rates:
+#   standard: ~$0.065/sec
+#   pro: ~$0.095/sec
+kling:
+  # Per-second rates (for reference and custom durations)
+  standard_per_second: 0.065
+  pro_per_second: 0.095
+  
+  # Pre-calculated costs for standard durations
+  standard_5s: 0.325   # 5 sec * $0.065/sec
+  standard_10s: 0.65   # 10 sec * $0.065/sec
+  pro_5s: 0.475        # 5 sec * $0.095/sec
+  pro_10s: 0.95        # 10 sec * $0.095/sec
+

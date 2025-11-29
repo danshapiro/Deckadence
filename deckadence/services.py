@@ -21,6 +21,7 @@ from PIL import Image, ImageOps
 from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from .config import AppConfig
+from .costs import get_tracker
 from .prompts import get_prompt, load_prompts
 from .models import ChatMessage, ConversationPhase, Deck, ExportSettings, Slide
 
@@ -364,8 +365,11 @@ def _resolve_deck_file(project_root: Path, deck_path: Optional[Path]) -> Path:
 # Media generation (Gemini Image Generation / Kling 2.5)
 # ---------------------------------------------------------------------------
 
-# Default model for image generation (Nano Banana Pro / Gemini 3 Pro Image)
-GEMINI_IMAGE_MODEL = "gemini-3-pro-image-preview"
+# Gemini image generation models
+GEMINI_IMAGE_MODELS = {
+    "nano_banana": "gemini-2.0-flash-exp",  # Faster, lower cost
+    "nano_banana_pro": "gemini-3-pro-image-preview",  # Higher quality
+}
 
 
 def _get_gemini_client(cfg: AppConfig) -> genai.Client:
@@ -404,10 +408,13 @@ async def generate_slide_image(
 ) -> Path:
     """Generate a 2K slide image via Gemini's native image generation.
     
-    Uses Gemini 2.0 Flash (or newer) with response_modalities=["IMAGE"] to
-    generate images directly from the model.
+    Uses the configured image_model (nano_banana or nano_banana_pro).
     """
     client = _get_gemini_client(cfg)
+    
+    # Get the model endpoint based on config
+    image_model = cfg.image_model or "nano_banana_pro"
+    model_endpoint = GEMINI_IMAGE_MODELS.get(image_model, GEMINI_IMAGE_MODELS["nano_banana_pro"])
     
     # Build the prompt with aspect ratio hint
     aspect_ratio = f"{width}:{height}"
@@ -424,14 +431,14 @@ async def generate_slide_image(
                 mime_type = "image/png" if ref_path.suffix.lower() == ".png" else "image/jpeg"
                 contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
     
-    LOG.info("Generating slide image with Gemini: %s", prompt[:80] + "..." if len(prompt) > 80 else prompt)
+    LOG.info("Generating slide image with %s: %s", image_model, prompt[:80] + "..." if len(prompt) > 80 else prompt)
     
     # Run the synchronous API call in a thread pool
     loop = asyncio.get_event_loop()
     
     def _generate():
         response = client.models.generate_content(
-            model=GEMINI_IMAGE_MODEL,
+            model=model_endpoint,
             contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
@@ -450,6 +457,9 @@ async def generate_slide_image(
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(final_image)
     
+    # Track cost with the correct model
+    get_tracker().add_gemini_image(model=image_model, details=f"slide: {dest.name}")
+    
     LOG.info("Saved generated slide image to %s", dest)
     return dest
 
@@ -465,10 +475,13 @@ async def generate_slide_image_edit(
 ) -> Path:
     """Generate a 2K slide image using Gemini with a reference image for style consistency.
     
-    This sends the reference image along with the prompt to maintain visual
-    coherence across slides in the deck.
+    Uses the configured image_model (nano_banana or nano_banana_pro).
     """
     client = _get_gemini_client(cfg)
+    
+    # Get the model endpoint based on config
+    image_model = cfg.image_model or "nano_banana_pro"
+    model_endpoint = GEMINI_IMAGE_MODELS.get(image_model, GEMINI_IMAGE_MODELS["nano_banana_pro"])
     
     if not reference_image.exists():
         raise FileNotFoundError(f"Reference image not found: {reference_image}")
@@ -491,13 +504,13 @@ async def generate_slide_image_edit(
         types.Part.from_bytes(data=ref_bytes, mime_type=ref_mime),
     ]
     
-    LOG.info("Generating slide image with reference: %s", prompt[:80] + "..." if len(prompt) > 80 else prompt)
+    LOG.info("Generating slide image with %s (reference): %s", image_model, prompt[:80] + "..." if len(prompt) > 80 else prompt)
     
     loop = asyncio.get_event_loop()
     
     def _generate():
         response = client.models.generate_content(
-            model=GEMINI_IMAGE_MODEL,
+            model=model_endpoint,
             contents=contents,
             config=types.GenerateContentConfig(
                 response_modalities=["IMAGE"],
@@ -515,6 +528,9 @@ async def generate_slide_image_edit(
     
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_bytes(final_image)
+    
+    # Track cost with the correct model
+    get_tracker().add_gemini_image(model=image_model, details=f"slide edit: {dest.name}")
     
     LOG.info("Saved generated slide image to %s", dest)
     return dest
@@ -640,6 +656,15 @@ async def generate_transition_clip(
         resp.raise_for_status()
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(resp.content)
+    
+    # Track cost
+    model = cfg.kling_model or "pro"
+    duration_int = int(kling_duration)
+    get_tracker().add_kling_video(
+        model=model,
+        duration=duration_int,
+        details=f"transition: {dest.name}"
+    )
     
     LOG.info("Transition video saved to %s", dest)
     return dest
@@ -799,7 +824,8 @@ def _export_deck_to_mp4_sync(
                 if not trans_path.exists():
                     raise FileNotFoundError(f"Transition clip not found: {trans_path}")
                 trans_stream = _make_transition_stream(
-                    trans_path, width, height, frame_rate, transition_duration
+                    trans_path, width, height, frame_rate, transition_duration,
+                    fast_transition=slide.fast_transition
                 )
                 streams.append(trans_stream)
             elif settings.no_transition_behavior == "fade":
@@ -861,16 +887,32 @@ def _make_slide_stream(
 
 
 def _make_transition_stream(
-    trans_path: Path, width: int, height: int, frame_rate: int, duration: float
+    trans_path: Path, width: int, height: int, frame_rate: int, duration: float,
+    fast_transition: bool = False
 ):
-    """Normalize a transition clip to the target resolution and duration."""
+    """Normalize a transition clip to the target resolution and duration.
+    
+    Args:
+        trans_path: Path to the transition video file.
+        width: Target width in pixels.
+        height: Target height in pixels.
+        frame_rate: Target frame rate.
+        duration: Base duration for the transition.
+        fast_transition: If True, play at 2x speed (halves the duration).
+    """
     trans_input = ffmpeg.input(str(trans_path))
     trans_stream = (
         trans_input.filter("scale", width, height)
         .filter("fps", fps=frame_rate)
         .filter("format", "yuv420p")
     )
-    return trans_stream.filter("trim", duration=duration).setpts("PTS-STARTPTS")
+    
+    if fast_transition:
+        # Speed up 2x by halving presentation timestamps, then trim to half duration
+        effective_duration = duration / 2.0
+        return trans_stream.setpts("0.5*PTS").filter("trim", duration=effective_duration).setpts("PTS-STARTPTS")
+    else:
+        return trans_stream.filter("trim", duration=duration).setpts("PTS-STARTPTS")
 
 
 def _make_crossfade_stream(

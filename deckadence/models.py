@@ -18,6 +18,10 @@ class Slide(BaseModel):
         default=None,
         description="Path or URL to a video transitioning to the *next* slide.",
     )
+    fast_transition: bool = Field(
+        default=False,
+        description="If True, play transition at 2x speed (2.5s instead of 5s).",
+    )
 
     @field_validator("image", "transition")
     @classmethod
