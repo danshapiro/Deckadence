@@ -8,7 +8,7 @@
 
 - **Test all changes end-to-end with the command line** before committing
 - Run `python -m deckadence --help` to verify CLI works
-- Test specific commands: `serve`, `export`, `generate`, `info`, `init`, `config`
+- Test specific commands: `export`, `generate`, `info`, `init`, `config`
 
 ## Style Guidelines
 
@@ -30,9 +30,6 @@ python -m deckadence generate <project> --prompts prompts.json
 
 # Export to video
 python -m deckadence export <project> -o output.mp4
-
-# Launch web UI
-python -m deckadence serve --port 8080
 
 # Configure
 python -m deckadence config show

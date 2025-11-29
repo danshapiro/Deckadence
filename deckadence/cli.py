@@ -1,7 +1,6 @@
 """Deckadence CLI - Full-featured command line interface.
 
 Provides commands for:
-- serve: Launch the web UI
 - export: Export deck to MP4 video
 - generate: Generate slide images and transitions with AI
 - config: View and manage configuration
@@ -84,57 +83,6 @@ def _load_deck_sync(project_root: Path, deck_path: Optional[Path]) -> Deck:
     """Load a deck synchronously for CLI commands."""
     from .services import load_deck
     return asyncio.run(load_deck(project_root, deck_path))
-
-
-# ============================================================================
-# SERVE COMMAND
-# ============================================================================
-
-
-@app.command()
-def serve(
-    port: int = typer.Option(8080, "--port", "-p", help="Port for the NiceGUI web server."),
-    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host address (use 0.0.0.0 for external access)."),
-    config_path: Optional[str] = typer.Option(
-        None,
-    "--config",
-        "-c",
-    help="Path to Deckadence JSON config file.",
-    ),
-    project: Optional[str] = typer.Option(
-        None,
-    "--project",
-        "-P",
-    help="Path to a project directory or deck JSON file to open on launch.",
-    ),
-    no_browser: bool = typer.Option(False, "--no-browser", help="Do not automatically open a browser window."),
-    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging."),
-) -> None:
-    """Launch the Deckadence web UI server.
-    
-    Start the interactive web interface for creating and editing visual decks.
-    """
-    _configure_logging(verbose)
-    LOG.debug("Starting Deckadence with port=%s host=%s", port, host)
-
-    from .ui import run_app
-
-    cfg_path = config_path or _DEFAULT_CONFIG
-    config_manager = ConfigManager(cfg_path)
-    
-    rprint(Panel.fit(
-        f"[bold cyan]Deckadence[/] starting on [green]http://{host}:{port}[/]",
-        title="Deckadence",
-        border_style="cyan",
-    ))
-    
-    run_app(
-        port=port,
-        host=host,
-        open_browser=not no_browser,
-        config_manager=config_manager,
-        project_path=project,
-    )
 
 
 # ============================================================================
@@ -655,8 +603,7 @@ def init(
     rprint("\n[bold]Next steps:[/]")
     rprint("  1. Edit [cyan]prompts.json[/] with your slide descriptions")
     rprint("  2. Run [cyan]deckadence generate .[/] to create media")
-    rprint("  3. Run [cyan]deckadence serve --project .[/] to preview")
-    rprint("  4. Run [cyan]deckadence export .[/] to create video")
+    rprint("  3. Run [cyan]deckadence export .[/] to create video")
 
 
 # ============================================================================

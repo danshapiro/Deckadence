@@ -3,7 +3,7 @@
 Deckadence creates stunning visual slide decks with AI-generated images and animated transitions. Generate professional presentations from a simple topic prompt, then export to MP4 video.
 
 > **Note:**  
-> Besides this paragraph, this README is AI generated and probably wrong. The code is barely tested, the UI isn't tested at all, and usage may get expensive quickly—use with caution. But it's also pretty awesome.
+> Besides this paragraph, this README is AI generated and probably wrong. The code is barely tested and usage may get expensive quickly—use with caution. But it's also pretty awesome.
 
 ## Features
 
@@ -47,9 +47,6 @@ deckadence generate --topic "The Future of Space Travel" --slides 5
 
 # 2. Export to video
 deckadence export output -o presentation.mp4
-
-# 3. Launch web UI to preview and edit
-deckadence serve --project output
 ```
 
 ---
@@ -60,7 +57,6 @@ deckadence serve --project output
 |---------|-------------|
 | `generate` | Generate slides and transitions using AI |
 | `export` | Export deck to MP4 video |
-| `serve` | Launch the web UI |
 | `init` | Create a new empty project |
 | `info` | Display deck information |
 | `config` | Manage settings and API keys |
@@ -206,52 +202,6 @@ deckadence export . -o output.mp4
 
 ---
 
-### `deckadence serve`
-
-Launch the interactive web UI for creating and editing decks.
-
-```bash
-deckadence serve [OPTIONS]
-```
-
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| `--port` | `-p` | 8080 | Port for the web server |
-| `--host` | `-h` | 127.0.0.1 | Host address (use `0.0.0.0` for network access) |
-| `--project` | `-P` | — | Project directory to open on launch |
-| `--no-browser` | — | false | Don't automatically open browser |
-| `--config` | `-c` | — | Path to config file |
-| `--verbose` | `-v` | false | Enable verbose logging |
-
-#### Examples
-
-```bash
-# Start with default settings (opens browser automatically)
-deckadence serve
-
-# Open with an existing project
-deckadence serve --project ./my-deck
-
-# Run on a different port
-deckadence serve --port 3000
-
-# Allow access from other devices on the network
-deckadence serve --host 0.0.0.0 --port 8080
-
-# Start without opening browser (for remote servers)
-deckadence serve --no-browser
-
-# Full example
-deckadence serve \
-  --project ./my-presentation \
-  --port 9000 \
-  --host 0.0.0.0 \
-  --no-browser \
-  --verbose
-```
-
----
-
 ### `deckadence init`
 
 Initialize a new empty project with placeholder files.
@@ -302,10 +252,7 @@ deckadence init my-project -n 5
 # 3. Generate the media
 deckadence generate --project my-project
 
-# 4. Preview in web UI
-deckadence serve --project my-project
-
-# 5. Export to video
+# 4. Export to video
 deckadence export my-project -o final.mp4
 ```
 
@@ -467,9 +414,6 @@ deckadence generate \
   --kling-model pro \
   --output keynote
 
-# Preview and refine in web UI
-deckadence serve --project keynote
-
 # Export 4K video
 deckadence export keynote \
   -o keynote-4k.mp4 \
@@ -489,9 +433,6 @@ deckadence init brand-video --slides 6
 
 # Generate from your prompts
 deckadence generate --project brand-video
-
-# Preview
-deckadence serve --project brand-video
 
 # Export
 deckadence export brand-video -o brand-video.mp4
@@ -568,15 +509,6 @@ Decks are defined in `deck.json`:
 
 - `image` (required): Path to slide image (PNG or JPG)
 - `transition` (optional): Path to transition video to next slide
-
-## Web UI
-
-The web UI (`deckadence serve`) is currently under development. It provides:
-
-- Interactive slide viewer with playback controls
-- AI chat assistant for deck design
-- Settings management
-- Export dialog
 
 ## License
 
