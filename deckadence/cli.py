@@ -1,11 +1,10 @@
 """Deckadence CLI - Full-featured command line interface.
 
 Provides commands for:
-- export: Export deck to MP4 video
 - generate: Generate slide images and transitions with AI
-- config: View and manage configuration
+- export: Export deck to MP4 video
 - info: Display deck information
-- init: Initialize a new project
+- config: View and manage configuration
 """
 
 from __future__ import annotations
@@ -584,7 +583,7 @@ def info(
     if not deck_path or not deck_path.exists():
         LOG.warning("No deck.json found", extra={"project_root": str(project_root)})
         rprint(f"[yellow]No deck.json found in {project_root}[/]")
-        rprint("\nUse [cyan]deckadence init[/] to create a new project.")
+        rprint("\nUse [cyan]deckadence generate --topic \"Your Topic\"[/] to create a new project.")
         raise typer.Exit(0)
 
     try:
@@ -633,92 +632,6 @@ def info(
             table.add_row(str(idx + 1), slide.image, trans_text, status)
 
         rprint(table)
-
-
-# ============================================================================
-# INIT COMMAND
-# ============================================================================
-
-
-@app.command()
-def init(
-    directory: str = typer.Argument(
-        "output",
-        help="Directory to initialize the project in (default: output/).",
-    ),
-    slides: int = typer.Option(5, "--slides", "-n", help="Number of placeholder slides to create."),
-    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing deck.json."),
-) -> None:
-    """Initialize a new Deckadence project.
-    
-    Creates a deck.json with placeholder slides ready for generation.
-    """
-    # Note: init runs before verbose logging setup, use basic logging
-    setup_logging(verbose=False)
-    
-    LOG.info("Init command started", extra={"command": "init", "directory": directory, "slide_count": slides, "force": force})
-    
-    project_dir = Path(directory).resolve()
-    project_dir.mkdir(parents=True, exist_ok=True)
-    LOG.debug("Project directory created", extra={"project_dir": str(project_dir)})
-    
-    deck_file = project_dir / "deck.json"
-    
-    if deck_file.exists() and not force:
-        LOG.warning("deck.json already exists", extra={"deck_file": str(deck_file)})
-        rprint(f"[yellow]deck.json already exists in {project_dir}[/]")
-        rprint("Use [cyan]--force[/] to overwrite.")
-        raise typer.Exit(1)
-
-    # Create directory structure
-    (project_dir / "slides").mkdir(exist_ok=True)
-    (project_dir / "transitions").mkdir(exist_ok=True)
-    (project_dir / "_uploads").mkdir(exist_ok=True)
-    LOG.debug("Directory structure created")
-
-    # Create placeholder deck
-    deck_slides = [
-        Slide(image=f"slides/slide{i+1}.png")
-        for i in range(slides)
-    ]
-    deck = Deck(slides=deck_slides)
-    
-    # Write deck.json
-    with open(deck_file, "w") as f:
-        json.dump(deck.model_dump(), f, indent=2)
-    LOG.info("deck.json created", extra={"deck_file": str(deck_file), "slide_count": slides})
-
-    # Create placeholder prompts file
-    prompts_file = project_dir / "prompts.json"
-    prompts_data = {
-        "slide_prompts": [f"Describe slide {i+1} visual content here" for i in range(slides)],
-        "transition_prompts": [
-            f"Describe transition from slide {i+1} to slide {i+2}"
-            for i in range(slides - 1)
-        ],
-    }
-    with open(prompts_file, "w") as f:
-        json.dump(prompts_data, f, indent=2)
-    LOG.debug("prompts.json created", extra={"prompts_file": str(prompts_file)})
-
-    tree = Tree(f"[bold cyan]Project initialized[/]")
-    tree.add(f"{project_dir}")
-    
-    files_branch = tree.add("Files created:")
-    files_branch.add(f"[green]deck.json[/] - Deck definition ({slides} slides)")
-    files_branch.add(f"[green]prompts.json[/] - Generation prompts template")
-    
-    dirs_branch = tree.add("Directories:")
-    dirs_branch.add("[dim]slides/[/] - Generated slide images")
-    dirs_branch.add("[dim]transitions/[/] - Generated transition videos")
-    dirs_branch.add("[dim]_uploads/[/] - User-uploaded assets")
-
-    rprint(tree)
-    
-    rprint("\n[bold]Next steps:[/]")
-    rprint("  1. Edit [cyan]prompts.json[/] with your slide descriptions")
-    rprint("  2. Run [cyan]deckadence generate .[/] to create media")
-    rprint("  3. Run [cyan]deckadence export .[/] to create video")
 
 
 # ============================================================================

@@ -57,7 +57,6 @@ deckadence export output -o presentation.mp4
 |---------|-------------|
 | `generate` | Generate slides and transitions using AI |
 | `export` | Export deck to MP4 video |
-| `init` | Create a new empty project |
 | `info` | Display deck information |
 | `config` | Manage settings and API keys |
 
@@ -102,23 +101,8 @@ deckadence generate --project ./mydeck --prompts prompts.json
 #### Examples
 
 ```bash
-# Generate a 3-slide deck on AI (minimal)
+# Generate a 3-slide deck on AI
 deckadence generate -t "Artificial Intelligence in Healthcare" -n 3
-
-# Generate without transitions (faster, less expensive)
-deckadence generate -t "Climate Change" -n 5 --no-transitions
-
-# Use the faster/cheaper image model
-deckadence generate -t "Modern Architecture" --image-model nano_banana
-
-# Use standard Kling model (720p, more affordable)
-deckadence generate -t "Ocean Wildlife" --kling-model standard
-
-# Output to a specific directory
-deckadence generate -t "Startup Pitch" -n 8 -o my-pitch-deck
-
-# Generate from existing prompts file
-deckadence generate --project ./my-project --prompts custom-prompts.json
 
 # Full control with all options
 deckadence generate \
@@ -164,11 +148,12 @@ deckadence export <project> [OPTIONS]
 | `--width` | `-W` | 1920 | Video width in pixels |
 | `--height` | `-H` | 1080 | Video height in pixels |
 | `--slide-duration` | `-s` | 5.0 | Duration each slide is shown (seconds) |
-| `--transition-duration` | `-t` | 1.0 | Duration of transitions (seconds) |
+| `--transition-duration` | `-t` | 1.0 | Playback speed for transitions (seconds) |
 | `--no-transitions` | — | false | Exclude transition videos from export |
-| `--fallback` | `-f` | cut | Behavior when transition is missing: `cut` or `fade` |
 | `--config` | `-c` | — | Path to config file |
 | `--verbose` | `-v` | false | Enable verbose logging |
+
+**Note:** The `--transition-duration` option controls playback speed, not cropping. If a generated transition is 5 seconds and you set `-t 2.5`, the video plays at 2x speed. If you set `-t 10`, it plays at 0.5x speed. When a slide has no transition video, there is a hard cut to the next slide.
 
 #### Examples
 
@@ -176,84 +161,13 @@ deckadence export <project> [OPTIONS]
 # Basic export
 deckadence export ./my-deck -o presentation.mp4
 
-# Export at 720p resolution
-deckadence export ./my-deck -o output.mp4 -W 1280 -H 720
-
-# Longer slides, shorter transitions
-deckadence export ./my-deck -s 8 -t 0.5 -o slow-paced.mp4
-
-# Export without transitions (slides only)
-deckadence export ./my-deck --no-transitions -o slides-only.mp4
-
-# Use crossfade when transition videos are missing
-deckadence export ./my-deck --fallback fade
-
-# Export 4K video with custom timing
+# Full control: 4K, custom timing, faster transitions
 deckadence export ./my-deck \
   --output 4k-export.mp4 \
   --width 3840 \
   --height 2160 \
   --slide-duration 4 \
-  --transition-duration 1.5
-
-# Export from current directory
-deckadence export . -o output.mp4
-```
-
----
-
-### `deckadence init`
-
-Initialize a new empty project with placeholder files.
-
-```bash
-deckadence init [directory] [OPTIONS]
-```
-
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| `--slides` | `-n` | 5 | Number of placeholder slides to create |
-| `--force` | `-f` | false | Overwrite existing deck.json if present |
-
-#### What Gets Created
-
-```
-my-project/
-  deck.json         # Deck definition with placeholder slides
-  prompts.json      # Template for generation prompts (edit this!)
-  slides/           # Directory for generated slide images
-  transitions/      # Directory for generated transition videos
-  _uploads/         # Directory for user-uploaded assets
-```
-
-#### Examples
-
-```bash
-# Initialize in default 'output' directory with 5 slides
-deckadence init
-
-# Initialize in a specific directory with 8 slides
-deckadence init my-presentation --slides 8
-
-# Force overwrite existing project
-deckadence init ./existing-project --force
-
-# Create a minimal 3-slide project
-deckadence init quick-deck -n 3
-```
-
-#### Workflow After Init
-
-```bash
-# 1. Initialize project
-deckadence init my-project -n 5
-
-# 2. Edit prompts.json with your slide descriptions
-# 3. Generate the media
-deckadence generate --project my-project
-
-# 4. Export to video
-deckadence export my-project -o final.mp4
+  --transition-duration 2.5
 ```
 
 ---
@@ -331,8 +245,7 @@ deckadence config set <key> <value>
 | `kling-model` | Default video transition model | `standard` (720p), `pro` (1080p) |
 | `resolution` | Default export resolution | e.g., `1920x1080`, `1280x720` |
 | `slide-duration` | Default slide duration | Seconds (e.g., `5.0`) |
-| `transition-duration` | Default transition duration | Seconds (e.g., `1.0`) |
-| `no-transition-behavior` | Fallback when no transition exists | `cut`, `fade` |
+| `transition-duration` | Default transition playback speed | Seconds (e.g., `1.0`) |
 
 #### Show Config File Path
 
@@ -355,13 +268,10 @@ deckadence config set kling-model standard
 
 # Set default timing
 deckadence config set slide-duration 6.0
-deckadence config set transition-duration 1.5
+deckadence config set transition-duration 1.0
 
 # Set default resolution
 deckadence config set resolution 1920x1080
-
-# Use fade instead of cut for missing transitions
-deckadence config set no-transition-behavior fade
 
 # View current configuration
 deckadence config show
@@ -378,75 +288,49 @@ deckadence config show
 
 ### Complete Workflow Examples
 
-#### Example 1: Quick Presentation from Topic
+#### Basic: Quick Presentation from Topic
 
 ```bash
-# Generate a 5-slide deck
+# Generate a 5-slide deck and export to video
 deckadence generate --topic "Introduction to Machine Learning"
-
-# Export immediately
 deckadence export output -o ml-intro.mp4
 ```
 
-#### Example 2: Budget-Conscious Workflow
+#### Comprehensive: Custom Prompts with Premium Models
 
 ```bash
-# Use cheaper models and skip transitions
+# 1. Create a prompts.json with your custom descriptions
+cat > prompts.json << 'EOF'
+{
+  "slide_prompts": [
+    "Dramatic wide shot of a futuristic city at sunset, golden hour, cinematic",
+    "Close-up of hands on holographic keyboard, blue glow, tech aesthetic",
+    "Aerial view of data streams flowing through a digital landscape"
+  ],
+  "transition_prompts": [
+    "City lights blur and transform into digital particles",
+    "Holographic display dissolves into flowing data streams"
+  ]
+}
+EOF
+
+# 2. Generate with premium models and custom prompts
 deckadence generate \
-  --topic "Quarterly Sales Report" \
-  --slides 4 \
-  --image-model nano_banana \
-  --no-transitions \
-  --output sales-deck
-
-# Export as slides-only video with 8-second slides
-deckadence export sales-deck -o quarterly.mp4 --slide-duration 8
-```
-
-#### Example 3: High-Quality Production
-
-```bash
-# Use premium models for best quality
-deckadence generate \
-  --topic "Product Launch Keynote" \
-  --slides 10 \
+  --topic "placeholder" \
+  --slides 3 \
   --image-model nano_banana_pro \
   --kling-model pro \
-  --output keynote
+  --output brand-video \
+  --verbose
 
-# Export 4K video
-deckadence export keynote \
-  -o keynote-4k.mp4 \
+# (Or use existing prompts: deckadence generate --project brand-video --prompts prompts.json)
+
+# 3. Export 4K video with custom timing
+deckadence export brand-video \
+  -o brand-video-4k.mp4 \
   -W 3840 -H 2160 \
   --slide-duration 5 \
-  --transition-duration 1.5
-```
-
-#### Example 4: Custom Prompts Workflow
-
-```bash
-# Initialize project structure
-deckadence init brand-video --slides 6
-
-# Edit prompts.json with your custom descriptions
-# (use your favorite editor)
-
-# Generate from your prompts
-deckadence generate --project brand-video
-
-# Export
-deckadence export brand-video -o brand-video.mp4
-```
-
-#### Example 5: Batch Processing
-
-```bash
-# Generate multiple decks
-for topic in "AI Ethics" "Cloud Computing" "Cybersecurity Basics"; do
-  dir=$(echo "$topic" | tr ' ' '-' | tr '[:upper:]' '[:lower:]')
-  deckadence generate --topic "$topic" --slides 5 --output "$dir"
-  deckadence export "$dir" -o "${dir}.mp4"
-done
+  --transition-duration 2.5
 ```
 
 ---
