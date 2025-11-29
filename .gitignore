@@ -49,6 +49,7 @@ output/
 
 # Logs
 *.log
+logs/
 
 # Environment files with secrets
 .env

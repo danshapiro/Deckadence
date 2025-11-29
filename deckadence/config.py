@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
-import logging
 import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
 from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .logging_config import get_logger
+
+LOG = get_logger(__name__)
 
 DEFAULT_CONFIG_PATH = os.path.expanduser("~/.deckadence/config.json")
 
@@ -82,12 +85,13 @@ class EnvConfig(BaseSettings):
 
     Uses standard provider environment variable names (GEMINI_API_KEY, FAL_KEY).
     Any non-null values here override those in FileConfig.
+    Loads from .env file in the current directory if present.
     """
 
-    model_config = SettingsConfigDict(extra="ignore")
+    model_config = SettingsConfigDict(extra="ignore", env_file=".env", env_file_encoding="utf-8")
 
-    gemini_api_key: Optional[str] = Field(default=None, alias="GEMINI_API_KEY")
-    fal_api_key: Optional[str] = Field(default=None, alias="FAL_KEY")
+    gemini_api_key: Optional[str] = Field(default=None, validation_alias="GEMINI_API_KEY")
+    fal_api_key: Optional[str] = Field(default=None, validation_alias="FAL_KEY")
 
 
 class AppConfig(FileConfig):
@@ -105,6 +109,7 @@ class ConfigManager:
 
     def __init__(self, path: Optional[str] = None) -> None:
         self.path = Path(path or DEFAULT_CONFIG_PATH)
+        LOG.debug("ConfigManager initialized", extra={"config_path": str(self.path)})
 
     def load(self) -> AppConfig:
         """Load configuration from disk (if present) and merge env overrides."""
@@ -113,17 +118,24 @@ class ConfigManager:
             try:
                 with self.path.open("r", encoding="utf-8") as f:
                     file_data = json.load(f)
+                LOG.debug("Config file loaded", extra={"config_path": str(self.path)})
             except Exception as exc:  # pragma: no cover - defensive
-                logging.warning("Failed to load config file %s: %s", self.path, exc)
+                LOG.warning("Failed to load config file", extra={"config_path": str(self.path), "error": str(exc)})
 
         file_cfg = FileConfig(**file_data)
         env_cfg = EnvConfig()
 
         merged = file_cfg.model_dump()
+        env_overrides = []
         for key, value in env_cfg.model_dump(exclude_unset=True).items():
             if value is not None:
                 merged[key] = value
+                env_overrides.append(key)
 
+        if env_overrides:
+            LOG.debug("Environment overrides applied", extra={"overridden_keys": env_overrides})
+
+        LOG.info("Configuration loaded", extra={"config_path": str(self.path), "env_overrides": env_overrides})
         return AppConfig(**merged)
 
     def save(self, cfg: AppConfig) -> None:
@@ -131,6 +143,7 @@ class ConfigManager:
 
         Environment variable overrides are *not* written back to disk.
         """
+        LOG.debug("Saving configuration", extra={"config_path": str(self.path)})
         self._validate_keys(cfg)
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -140,12 +153,18 @@ class ConfigManager:
         # only contains user-managed configuration.
         env_cfg = EnvConfig()
         env_values = env_cfg.model_dump(exclude_unset=True)
+        excluded_keys = []
         for key, value in env_values.items():
             if value is not None and key in data:
                 data.pop(key, None)
+                excluded_keys.append(key)
+
+        if excluded_keys:
+            LOG.debug("Excluded env-provided values from config file", extra={"excluded_keys": excluded_keys})
 
         with self.path.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
+        LOG.info("Configuration saved", extra={"config_path": str(self.path)})
 
     def _validate_keys(self, cfg: AppConfig) -> None:
         """Lightweight sanity checks for API keys so we fail fast in the UI."""

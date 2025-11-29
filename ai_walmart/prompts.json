@@ -1,0 +1,9 @@
+{
+  "slide_prompts": [
+    "A dramatic cinematic wide shot of a massive Walmart supercenter at night, its glowing blue sign and fluorescent lights cutting through darkness. In the ominous sky above, giant holographic AI neural network patterns and glowing circuit board designs loom like storm clouds. The parking lot is eerily empty. Dark, moody atmosphere with deep blues, electric cyan accents, and warning-red undertones. Corporate dystopia aesthetic, photorealistic style with dramatic volumetric lighting.",
+    "A surreal split-composition image: on the left, traditional retail checkout lanes abandoned and covered in cobwebs with flickering fluorescent lights. On the right, a sleek futuristic AI-powered fulfillment center with robotic arms, autonomous drones, and holographic inventory displays glowing in electric blue. The divide between old and new is stark and dramatic. Same dark moody palette - deep blues, cyan, and red warning accents. Cinematic lighting, photorealistic dystopian retail aesthetic."
+  ],
+  "transition_prompts": [
+    "The camera slowly pushes forward into the ominous night sky above Walmart, the neural network patterns in the clouds begin to pulse and intensify. The scene gradually morphs and dissolves, the outdoor view transforms into an indoor retail space, revealing the abandoned checkout lanes emerging from the darkness as we transition to the split view of old versus new retail."
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "slide_prompts": [
+    "A dramatic hero shot of a steaming espresso in a white ceramic cup on a marble countertop. Morning light streams through a window creating soft shadows. The espresso has a perfect golden crema. Modern minimalist kitchen in the background, slightly blurred. Professional food photography style, warm color palette with rich browns and cream tones.",
+    "An overhead flat-lay of a pour-over coffee setup: a glass Chemex brewer with light brown coffee inside, whole coffee beans scattered artistically, a gooseneck kettle, and a small digital scale. White marble surface. Clean, bright lighting. Same warm color palette as slide 1 - rich browns, cream, and white tones. Professional product photography."
+  ],
+  "transition_prompts": [
+    "Camera pulls back smoothly from the espresso cup, the scene gently crossfades as the view rises upward, transitioning to an overhead perspective looking down at the pour-over setup."
+  ]
+}

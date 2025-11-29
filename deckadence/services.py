@@ -5,7 +5,6 @@ import base64
 import hashlib
 import io
 import json
-import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,10 +21,11 @@ from tenacity import RetryError, retry, stop_after_attempt, wait_exponential
 
 from .config import AppConfig
 from .costs import get_tracker
+from .logging_config import get_logger
 from .prompts import get_prompt, load_prompts
 from .models import ChatMessage, ConversationPhase, Deck, DeckOutline, ExportSettings, Slide
 
-LOG = logging.getLogger(__name__)
+LOG = get_logger(__name__)
 VALID_2K_RESOLUTIONS: set[Tuple[int, int]] = {(1920, 1080), (2048, 1152)}
 DOWNLOAD_DIR_NAME = "_downloads"
 NORMALIZED_DIR_NAME = "_normalized"
@@ -59,6 +59,7 @@ class LLMService:
         from litellm import acompletion  # imported lazily
 
         if not self.cfg.gemini_api_key:
+            LOG.error("Gemini API key not configured")
             raise RuntimeError("Gemini API key is not configured. Please set GEMINI_API_KEY environment variable or configure it in Settings.")
 
         system_prefix = self._system_prompt_for_phase(phase)
@@ -76,12 +77,21 @@ class LLMService:
         if extra_params:
             params.update(extra_params)
 
-        LOG.debug("Calling LiteLLM with model=%s, phase=%s", self.cfg.lite_llm_model, phase.value)
+        LOG.debug(
+            "Calling LiteLLM",
+            extra={
+                "model": self.cfg.lite_llm_model,
+                "phase": phase.value,
+                "message_count": len(llm_messages),
+                "allow_web_search": allow_web_search,
+            },
+        )
 
         try:
             resp = await acompletion(**params)
+            LOG.debug("LiteLLM response received", extra={"model": self.cfg.lite_llm_model})
         except Exception as exc:
-            LOG.exception("LiteLLM completion failed: %s", exc)
+            LOG.exception("LiteLLM completion failed", extra={"model": self.cfg.lite_llm_model, "error": str(exc)})
             raise
 
         try:
@@ -237,12 +247,16 @@ async def download_asset(url: str, dest: Path) -> Path:
     downstream processing (thumbnails, ffmpeg export) can work on local
     files.
     """
-    LOG.info("Downloading asset %s -> %s", url, dest)
+    LOG.info("Downloading asset", extra={"url": url, "destination": str(dest)})
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(url)
         response.raise_for_status()
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(response.content)
+    LOG.debug(
+        "Asset downloaded successfully",
+        extra={"url": url, "destination": str(dest), "size_bytes": len(response.content)},
+    )
     return dest
 
 
@@ -250,15 +264,18 @@ async def load_deck(project_root: Path, deck_path: Optional[Path] = None, normal
     """Load a deck JSON file, optionally downloading remote assets."""
 
     deck_file = _resolve_deck_file(project_root, deck_path)
+    LOG.debug("Loading deck", extra={"deck_file": str(deck_file), "normalize_remote": normalize_remote})
     async with aiofiles.open(deck_file, "r", encoding="utf-8") as f:
         raw = await f.read()
 
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+        LOG.error("Invalid deck JSON", extra={"deck_file": str(deck_file), "error": str(exc)})
         raise ValueError(f"Deck JSON is invalid: {exc}") from exc
 
     deck = Deck(**data)
+    LOG.info("Deck loaded", extra={"deck_file": str(deck_file), "slide_count": deck.slide_count()})
     if normalize_remote:
         deck = await _normalize_deck_assets(deck, project_root)
     return deck
@@ -266,9 +283,11 @@ async def load_deck(project_root: Path, deck_path: Optional[Path] = None, normal
 
 async def save_deck(deck: Deck, deck_path: Path) -> None:
     """Persist a deck to disk."""
+    LOG.debug("Saving deck", extra={"deck_path": str(deck_path), "slide_count": deck.slide_count()})
     deck_path.parent.mkdir(parents=True, exist_ok=True)
     async with aiofiles.open(deck_path, "w", encoding="utf-8") as f:
         await f.write(json.dumps(deck.model_dump(), indent=2))
+    LOG.info("Deck saved", extra={"deck_path": str(deck_path)})
 
 
 async def _normalize_deck_assets(deck: Deck, project_root: Path) -> Deck:
@@ -431,7 +450,17 @@ async def generate_slide_image(
                 mime_type = "image/png" if ref_path.suffix.lower() == ".png" else "image/jpeg"
                 contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type))
     
-    LOG.info("Generating slide image with %s: %s", image_model, prompt[:80] + "..." if len(prompt) > 80 else prompt)
+    LOG.info(
+        "Generating slide image",
+        extra={
+            "model": image_model,
+            "model_endpoint": model_endpoint,
+            "destination": str(dest),
+            "resolution": f"{width}x{height}",
+            "prompt_preview": prompt[:80] + "..." if len(prompt) > 80 else prompt,
+            "reference_image_count": len(reference_images) if reference_images else 0,
+        },
+    )
     
     # Run the synchronous API call in a thread pool
     loop = asyncio.get_event_loop()
@@ -447,6 +476,7 @@ async def generate_slide_image(
         return response
     
     response = await loop.run_in_executor(None, _generate)
+    LOG.debug("Gemini image generation API response received", extra={"destination": str(dest)})
     
     # Extract and save the image
     image_data = _extract_image_from_response(response)
@@ -460,7 +490,10 @@ async def generate_slide_image(
     # Track cost with the correct model
     get_tracker().add_gemini_image(model=image_model, details=f"slide: {dest.name}")
     
-    LOG.info("Saved generated slide image to %s", dest)
+    LOG.info(
+        "Slide image saved",
+        extra={"destination": str(dest), "model": image_model, "size_bytes": len(final_image)},
+    )
     return dest
 
 
@@ -607,20 +640,34 @@ async def generate_transition_clip(
         Path to the generated video file.
     """
     if not cfg.fal_api_key:
+        LOG.error("fal.ai API key not configured")
         raise RuntimeError("fal.ai API key is not configured. Please set FAL_KEY environment variable or configure it in Settings.")
 
     # Set the API key for fal_client
     os.environ["FAL_KEY"] = cfg.fal_api_key
     
-    # Upload both images to fal.ai storage
-    LOG.info("Uploading images to fal.ai for transition generation...")
-    start_url = await upload_image_to_fal(first_frame, cfg)
-    end_url = await upload_image_to_fal(last_frame, cfg)
-    
     endpoint = _get_kling_endpoint(cfg)
     kling_duration = _get_kling_duration(duration)
+    model = cfg.kling_model or "pro"
     
-    LOG.info("Generating transition via %s (duration=%ss)...", endpoint, kling_duration)
+    LOG.info(
+        "Starting transition generation",
+        extra={
+            "destination": str(dest),
+            "model": model,
+            "endpoint": endpoint,
+            "duration": kling_duration,
+            "first_frame": str(first_frame),
+            "last_frame": str(last_frame),
+            "prompt_preview": prompt[:80] + "..." if len(prompt) > 80 else prompt,
+        },
+    )
+    
+    # Upload both images to fal.ai storage
+    LOG.debug("Uploading images to fal.ai", extra={"first_frame": str(first_frame), "last_frame": str(last_frame)})
+    start_url = await upload_image_to_fal(first_frame, cfg)
+    end_url = await upload_image_to_fal(last_frame, cfg)
+    LOG.debug("Images uploaded to fal.ai", extra={"start_url": start_url, "end_url": end_url})
     
     # Prepare the request arguments
     arguments = {
@@ -630,6 +677,8 @@ async def generate_transition_clip(
         "duration": kling_duration,
         "aspect_ratio": "16:9",
     }
+    
+    LOG.debug("Calling fal.ai Kling API", extra={"endpoint": endpoint, "arguments": arguments})
     
     # Call fal.ai API using subscribe (handles polling for completion)
     loop = asyncio.get_event_loop()
@@ -642,13 +691,15 @@ async def generate_transition_clip(
         )
     
     result = await loop.run_in_executor(None, run_fal_subscribe)
+    LOG.debug("fal.ai API response received", extra={"result_keys": list(result.keys()) if isinstance(result, dict) else None})
     
     # Extract video URL from result
     video_url = result.get("video", {}).get("url")
     if not video_url:
+        LOG.error("No video URL in fal.ai response", extra={"result": result})
         raise RuntimeError(f"No video URL in fal.ai response: {result}")
     
-    LOG.info("Downloading generated transition video from %s", video_url)
+    LOG.debug("Downloading transition video", extra={"video_url": video_url})
     
     # Download the video file
     async with httpx.AsyncClient(timeout=120.0) as client:
@@ -658,7 +709,6 @@ async def generate_transition_clip(
         dest.write_bytes(resp.content)
     
     # Track cost
-    model = cfg.kling_model or "pro"
     duration_int = int(kling_duration)
     get_tracker().add_kling_video(
         model=model,
@@ -666,7 +716,15 @@ async def generate_transition_clip(
         details=f"transition: {dest.name}"
     )
     
-    LOG.info("Transition video saved to %s", dest)
+    LOG.info(
+        "Transition video saved",
+        extra={
+            "destination": str(dest),
+            "model": model,
+            "duration": duration_int,
+            "size_bytes": len(resp.content),
+        },
+    )
     return dest
 
 
@@ -800,6 +858,18 @@ def _export_deck_to_mp4_sync(
     include_transitions = settings.include_transitions
     frame_rate = 30
 
+    LOG.info(
+        "Starting MP4 export",
+        extra={
+            "output_path": settings.output_path,
+            "resolution": f"{width}x{height}",
+            "slide_duration": slide_duration,
+            "transition_duration": transition_duration,
+            "include_transitions": include_transitions,
+            "slide_count": deck.slide_count(),
+        },
+    )
+
     if progress_cb:
         progress_cb(ExportProgress(message="Preparing ffmpeg graph...", fraction=0.05))
 
@@ -810,8 +880,10 @@ def _export_deck_to_mp4_sync(
         # Slide image -> video segment
         slide_path = _resolve_path(slide.image, project_root)
         if not slide_path.exists():
+            LOG.error("Slide image not found", extra={"slide_path": str(slide_path), "slide_index": idx})
             raise FileNotFoundError(f"Slide image not found: {slide_path}")
 
+        LOG.debug("Processing slide", extra={"slide_index": idx, "slide_path": str(slide_path)})
         slide_stream = _make_slide_stream(slide_path, width, height, frame_rate, slide_duration)
         streams.append(slide_stream)
 
@@ -822,13 +894,16 @@ def _export_deck_to_mp4_sync(
             if include_transitions and slide.transition:
                 trans_path = _resolve_path(slide.transition, project_root)
                 if not trans_path.exists():
+                    LOG.error("Transition clip not found", extra={"trans_path": str(trans_path), "slide_index": idx})
                     raise FileNotFoundError(f"Transition clip not found: {trans_path}")
+                LOG.debug("Adding transition", extra={"slide_index": idx, "trans_path": str(trans_path)})
                 trans_stream = _make_transition_stream(
-                    trans_path, width, height, frame_rate, transition_duration,
+                    trans_path, width, height, frame_rate,
                     fast_transition=slide.fast_transition
                 )
                 streams.append(trans_stream)
             elif settings.no_transition_behavior == "fade":
+                LOG.debug("Adding crossfade fallback", extra={"slide_index": idx})
                 fade_stream = _make_crossfade_stream(
                     slide_path, next_slide_path, width, height, frame_rate, transition_duration
                 )
@@ -839,8 +914,10 @@ def _export_deck_to_mp4_sync(
             progress_cb(ExportProgress(message=f"Prepared slide {idx + 1}/{slide_count}", fraction=frac))
 
     if not streams:
+        LOG.error("No slides to export")
         raise ValueError("Deck has no slides to export")
 
+    LOG.debug("Concatenating video segments", extra={"stream_count": len(streams)})
     if progress_cb:
         progress_cb(ExportProgress(message="Concatenating segments...", fraction=0.8))
 
@@ -855,6 +932,7 @@ def _export_deck_to_mp4_sync(
         "movflags": "+faststart",
     }
 
+    LOG.debug("Running ffmpeg", extra={"output_path": str(out_path), "output_kwargs": output_kwargs})
     try:
         (
             concat_stream.output(str(out_path), **output_kwargs)
@@ -864,12 +942,13 @@ def _export_deck_to_mp4_sync(
     except ffmpeg.Error as exc:  # type: ignore[assignment]
         stderr = getattr(exc, "stderr", b"")
         decoded = stderr.decode("utf-8", errors="ignore") if isinstance(stderr, (bytes, bytearray)) else str(stderr)
-        LOG.exception("ffmpeg export failed: %s", decoded)
+        LOG.exception("ffmpeg export failed", extra={"stderr": decoded})
         raise RuntimeError(f"ffmpeg export failed: {decoded}") from exc
 
     if progress_cb:
         progress_cb(ExportProgress(message="Export complete", fraction=1.0))
 
+    LOG.info("MP4 export completed", extra={"output_path": str(out_path)})
     return out_path
 
 
@@ -887,18 +966,20 @@ def _make_slide_stream(
 
 
 def _make_transition_stream(
-    trans_path: Path, width: int, height: int, frame_rate: int, duration: float,
+    trans_path: Path, width: int, height: int, frame_rate: int,
     fast_transition: bool = False
 ):
-    """Normalize a transition clip to the target resolution and duration.
+    """Normalize a transition clip to the target resolution.
+    
+    The full transition video is used (no trimming). If fast_transition is set,
+    the video plays at 2x speed.
     
     Args:
         trans_path: Path to the transition video file.
         width: Target width in pixels.
         height: Target height in pixels.
         frame_rate: Target frame rate.
-        duration: Base duration for the transition.
-        fast_transition: If True, play at 2x speed (halves the duration).
+        fast_transition: If True, play at 2x speed.
     """
     trans_input = ffmpeg.input(str(trans_path))
     trans_stream = (
@@ -908,11 +989,10 @@ def _make_transition_stream(
     )
     
     if fast_transition:
-        # Speed up 2x by halving presentation timestamps, then trim to half duration
-        effective_duration = duration / 2.0
-        return trans_stream.setpts("0.5*PTS").filter("trim", duration=effective_duration).setpts("PTS-STARTPTS")
+        # Speed up 2x by halving presentation timestamps
+        return trans_stream.setpts("0.5*PTS").setpts("PTS-STARTPTS")
     else:
-        return trans_stream.filter("trim", duration=duration).setpts("PTS-STARTPTS")
+        return trans_stream.setpts("PTS-STARTPTS")
 
 
 def _make_crossfade_stream(

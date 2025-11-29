@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
 
@@ -27,6 +27,7 @@ from rich.tree import Tree
 
 from .config import AppConfig, ConfigManager, DEFAULT_CONFIG_PATH
 from .costs import get_tracker, reset_tracker
+from .logging_config import setup_logging, get_logger
 from .models import Deck, ExportSettings, Slide
 
 # Default config path as string for Typer compatibility
@@ -48,20 +49,24 @@ config_app = typer.Typer(
 app.add_typer(config_app, name="config")
 
 console = Console()
-LOG = logging.getLogger(__name__)
+LOG = get_logger(__name__)
 
 
-def _configure_logging(verbose: bool) -> None:
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+def _configure_logging(verbose: bool, debug: bool = False) -> None:
+    """Configure structured logging for the CLI.
+    
+    Args:
+        verbose: Enable INFO level console output
+        debug: Enable DEBUG level console output (overrides verbose)
+    """
+    setup_logging(
+        verbose=verbose,
+        debug=debug,
+        log_to_file=True,
+        structured=True,
+        console_colors=True,
     )
-    # Suppress noisy HTTP and LiteLLM debug logs
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("LiteLLM").setLevel(logging.WARNING)
-    logging.getLogger("litellm").setLevel(logging.WARNING)
+    LOG.debug("Logging configured", extra={"verbose": verbose, "debug": debug})
 
 
 def _get_project_root(project_path: Optional[Path]) -> tuple[Path, Optional[Path]]:
@@ -118,18 +123,35 @@ def export(
     
     from .services import export_deck_to_mp4, ExportProgress
 
+    LOG.info(
+        "Export command started",
+        extra={
+            "command": "export",
+            "project": project,
+            "output": output,
+            "resolution": f"{width}x{height}",
+            "include_transitions": not no_transitions,
+        },
+    )
+
     project_path = Path(project)
     if not project_path.exists():
+        LOG.error("Project path does not exist", extra={"path": project})
         rprint(f"[red]Error:[/] Path does not exist: {project}")
         raise typer.Exit(1)
 
     project_root, deck_path = _get_project_root(project_path)
     
     if not deck_path or not deck_path.exists():
+        LOG.error("No deck.json found", extra={"project_root": str(project_root)})
         rprint(f"[red]Error:[/] No deck.json found in {project_root}")
         raise typer.Exit(1)
 
     output_path = Path(output)
+    LOG.debug(
+        "Resolved project paths",
+        extra={"project_root": str(project_root), "deck_path": str(deck_path), "output_path": str(output_path)},
+    )
     rprint(Panel.fit(
         f"Exporting [cyan]{deck_path}[/] -> [green]{output_path}[/]",
         title="Export",
@@ -138,7 +160,9 @@ def export(
 
     try:
         deck = _load_deck_sync(project_root, deck_path)
+        LOG.info("Deck loaded successfully", extra={"slide_count": deck.slide_count()})
     except Exception as e:
+        LOG.exception("Failed to load deck", extra={"error": str(e)})
         rprint(f"[red]Error loading deck:[/] {e}")
         raise typer.Exit(1)
 
@@ -151,6 +175,7 @@ def export(
         output_path=output,
         no_transition_behavior=fallback,
     )
+    LOG.debug("Export settings configured", extra={"settings": settings.model_dump()})
 
     with Progress(
         SpinnerColumn(),
@@ -162,12 +187,15 @@ def export(
         task = progress.add_task("Exporting...", total=100)
 
         def progress_cb(p: ExportProgress) -> None:
+            LOG.debug("Export progress", extra={"message": p.message, "fraction": p.fraction})
             progress.update(task, completed=int(p.fraction * 100), description=p.message)
 
         try:
             result = asyncio.run(export_deck_to_mp4(deck, settings, project_root, progress_cb))
             progress.update(task, completed=100, description="Complete!")
+            LOG.info("Export completed successfully", extra={"output_file": str(result)})
         except Exception as e:
+            LOG.exception("Export failed", extra={"error": str(e)})
             rprint(f"[red]Export failed:[/] {e}")
             raise typer.Exit(1)
 
@@ -283,30 +311,50 @@ def generate(
     
     from .services import generate_deck_media, ExportProgress
 
+    LOG.info(
+        "Generate command started",
+        extra={
+            "command": "generate",
+            "topic": topic,
+            "project": project,
+            "slide_count": slides,
+            "include_transitions": not no_transitions,
+            "image_model": image_model,
+            "kling_model": kling_model,
+        },
+    )
+
     cfg_path = config_path or _DEFAULT_CONFIG
     config_manager = ConfigManager(cfg_path)
     cfg = config_manager.load()
+    LOG.debug("Configuration loaded", extra={"config_path": cfg_path})
     
     # Override model settings from CLI options
     if image_model:
         if image_model not in ("nano_banana", "nano_banana_pro"):
+            LOG.error("Invalid image model", extra={"image_model": image_model})
             rprint(f"[red]Error:[/] Invalid image model '{image_model}'. Use 'nano_banana' or 'nano_banana_pro'.")
             raise typer.Exit(1)
         cfg.image_model = image_model
     
     if kling_model:
         if kling_model not in ("standard", "pro"):
+            LOG.error("Invalid Kling model", extra={"kling_model": kling_model})
             rprint(f"[red]Error:[/] Invalid Kling model '{kling_model}'. Use 'standard' or 'pro'.")
             raise typer.Exit(1)
         cfg.kling_model = kling_model
 
+    LOG.debug("Models configured", extra={"image_model": cfg.image_model, "kling_model": cfg.kling_model})
+
     # Check required API keys
     if not cfg.gemini_api_key:
+        LOG.error("Gemini API key not configured")
         rprint("[red]Error:[/] Gemini API key not configured.")
         rprint("Set [cyan]GEMINI_API_KEY[/] environment variable or use [cyan]deckadence config set gemini-api-key <KEY>[/]")
         raise typer.Exit(1)
 
     if not no_transitions and not cfg.fal_api_key:
+        LOG.error("fal.ai API key not configured")
         rprint("[red]Error:[/] fal.ai API key not configured (required for transitions).")
         rprint("Set [cyan]FAL_KEY[/] environment variable or use [cyan]deckadence config set fal-api-key <KEY>[/]")
         rprint("Or use [cyan]--no-transitions[/] to skip transition generation.")
@@ -314,8 +362,10 @@ def generate(
 
     # Determine mode and setup
     if topic:
-        # Topic mode: create project and generate prompts via LLM
-        project_root = Path(output_dir).resolve()
+        # Topic mode: create project in timestamped subdirectory
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        project_root = (Path(output_dir) / timestamp).resolve()
+        LOG.info("Creating new project from topic", extra={"topic": topic, "project_root": str(project_root)})
         project_root.mkdir(parents=True, exist_ok=True)
         (project_root / "slides").mkdir(exist_ok=True)
         (project_root / "transitions").mkdir(exist_ok=True)
@@ -326,6 +376,7 @@ def generate(
         
         with open(deck_path, "w") as f:
             json.dump(deck.model_dump(), f, indent=2)
+        LOG.debug("Initial deck.json created", extra={"deck_path": str(deck_path), "slide_count": slides})
         
         rprint(Panel.fit(
             f"Generating [cyan]{slides}[/]-slide deck on: [yellow]{topic}[/]",
@@ -335,11 +386,17 @@ def generate(
         
         # Generate prompts via LLM
         rprint("[dim]Designing presentation with AI...[/]")
+        LOG.info("Generating prompts via LLM", extra={"topic": topic, "slide_count": slides})
         try:
             slide_prompts, transition_prompts = asyncio.run(
                 _generate_prompts_from_topic(topic, slides, not no_transitions, cfg)
             )
+            LOG.info(
+                "Prompts generated successfully",
+                extra={"slide_prompt_count": len(slide_prompts), "transition_prompt_count": len(transition_prompts)},
+            )
         except Exception as e:
+            LOG.exception("Failed to generate prompts via LLM", extra={"error": str(e)})
             rprint(f"[red]Failed to generate prompts:[/] {e}")
             raise typer.Exit(1)
         
@@ -351,24 +408,29 @@ def generate(
         }
         with open(project_root / "prompts.json", "w") as f:
             json.dump(prompts_data, f, indent=2)
+        LOG.debug("Prompts saved to file", extra={"prompts_file": str(project_root / "prompts.json")})
         
         rprint(f"[green]Created {len(slide_prompts)} slide prompts[/]")
         
     else:
         # Existing project mode
         if not project:
+            LOG.error("No project or topic specified")
             rprint("[red]Error:[/] Either --topic or --project is required.")
             rprint("Use [cyan]--topic[/] to generate from a topic, or [cyan]--project[/] for an existing project.")
             raise typer.Exit(1)
             
         project_path = Path(project)
         if not project_path.exists():
+            LOG.error("Project path does not exist", extra={"project": project})
             rprint(f"[red]Error:[/] Path does not exist: {project}")
             raise typer.Exit(1)
 
         project_root, deck_path = _get_project_root(project_path)
+        LOG.info("Using existing project", extra={"project_root": str(project_root)})
         
         if not deck_path or not deck_path.exists():
+            LOG.error("No deck.json found", extra={"project_root": str(project_root)})
             rprint(f"[red]Error:[/] No deck.json found in {project_root}")
             raise typer.Exit(1)
 
@@ -377,7 +439,9 @@ def generate(
             with open(deck_path) as f:
                 deck_data = json.load(f)
             deck = Deck(**deck_data)
+            LOG.debug("Deck loaded", extra={"deck_path": str(deck_path), "slide_count": deck.slide_count()})
         except Exception as e:
+            LOG.exception("Failed to load deck", extra={"error": str(e)})
             rprint(f"[red]Error loading deck:[/] {e}")
             raise typer.Exit(1)
 
@@ -390,7 +454,16 @@ def generate(
                 prompts_data = json.load(f)
             slide_prompts = prompts_data.get("slide_prompts", [])
             transition_prompts = prompts_data.get("transition_prompts", [])
+            LOG.info(
+                "Prompts loaded from file",
+                extra={
+                    "prompts_path": str(prompts_path),
+                    "slide_prompt_count": len(slide_prompts),
+                    "transition_prompt_count": len(transition_prompts),
+                },
+            )
         else:
+            LOG.error("Prompts file not found", extra={"prompts_path": str(prompts_path)})
             rprint(f"[red]Error:[/] No prompts file found at {prompts_path}")
             rprint("Use [cyan]--topic[/] to generate prompts automatically, or provide [cyan]--prompts[/] file.")
             raise typer.Exit(1)
@@ -404,12 +477,27 @@ def generate(
 
     # Validate prompt counts
     if len(slide_prompts) != slides:
+        LOG.error("Prompt count mismatch", extra={"expected": slides, "got": len(slide_prompts)})
         rprint(f"[red]Error:[/] Expected {slides} slide prompts, got {len(slide_prompts)}")
         raise typer.Exit(1)
 
     if not no_transitions and len(transition_prompts) != max(slides - 1, 0):
+        LOG.error(
+            "Transition prompt count mismatch",
+            extra={"expected": max(slides - 1, 0), "got": len(transition_prompts)},
+        )
         rprint(f"[red]Error:[/] Expected {max(slides - 1, 0)} transition prompts, got {len(transition_prompts)}")
         raise typer.Exit(1)
+
+    LOG.info(
+        "Starting media generation",
+        extra={
+            "slide_count": slides,
+            "transition_count": len(transition_prompts) if not no_transitions else 0,
+            "image_model": cfg.image_model,
+            "kling_model": cfg.kling_model,
+        },
+    )
 
     with Progress(
         SpinnerColumn(),
@@ -421,6 +509,7 @@ def generate(
         task = progress.add_task("Generating...", total=100)
 
         def progress_cb(p: ExportProgress) -> None:
+            LOG.debug("Generation progress", extra={"message": p.message, "fraction": p.fraction})
             progress.update(task, completed=int(p.fraction * 100), description=p.message)
 
         # Reset cost tracker for this generation session
@@ -438,13 +527,23 @@ def generate(
                 progress_cb=progress_cb,
             ))
             progress.update(task, completed=100, description="Complete!")
+            LOG.info("Media generation completed successfully", extra={"project_root": str(project_root)})
         except Exception as e:
+            LOG.exception("Media generation failed", extra={"error": str(e)})
             rprint(f"[red]Generation failed:[/] {e}")
             raise typer.Exit(1)
 
     # Display cost summary
     tracker = get_tracker()
     if tracker.entries:
+        LOG.info(
+            "Generation costs",
+            extra={
+                "gemini_cost": tracker.gemini_cost,
+                "kling_cost": tracker.kling_cost,
+                "total_cost": tracker.total_cost,
+            },
+        )
         rprint("\n[bold]API Costs:[/]")
         cost_table = Table(show_header=True, header_style="bold")
         cost_table.add_column("Service", style="cyan")
@@ -476,17 +575,23 @@ def info(
     """
     _configure_logging(verbose)
     
+    LOG.info("Info command started", extra={"command": "info", "project": project})
+    
     project_path = Path(project) if project != "." else None
     project_root, deck_path = _get_project_root(project_path)
+    LOG.debug("Resolved project paths", extra={"project_root": str(project_root), "deck_path": str(deck_path) if deck_path else None})
     
     if not deck_path or not deck_path.exists():
+        LOG.warning("No deck.json found", extra={"project_root": str(project_root)})
         rprint(f"[yellow]No deck.json found in {project_root}[/]")
         rprint("\nUse [cyan]deckadence init[/] to create a new project.")
         raise typer.Exit(0)
 
     try:
         deck = _load_deck_sync(project_root, deck_path)
+        LOG.info("Deck loaded for info", extra={"slide_count": deck.slide_count()})
     except Exception as e:
+        LOG.exception("Failed to load deck", extra={"error": str(e)})
         rprint(f"[red]Error loading deck:[/] {e}")
         raise typer.Exit(1)
 
@@ -548,12 +653,19 @@ def init(
     
     Creates a deck.json with placeholder slides ready for generation.
     """
+    # Note: init runs before verbose logging setup, use basic logging
+    setup_logging(verbose=False)
+    
+    LOG.info("Init command started", extra={"command": "init", "directory": directory, "slide_count": slides, "force": force})
+    
     project_dir = Path(directory).resolve()
     project_dir.mkdir(parents=True, exist_ok=True)
+    LOG.debug("Project directory created", extra={"project_dir": str(project_dir)})
     
     deck_file = project_dir / "deck.json"
     
     if deck_file.exists() and not force:
+        LOG.warning("deck.json already exists", extra={"deck_file": str(deck_file)})
         rprint(f"[yellow]deck.json already exists in {project_dir}[/]")
         rprint("Use [cyan]--force[/] to overwrite.")
         raise typer.Exit(1)
@@ -562,6 +674,7 @@ def init(
     (project_dir / "slides").mkdir(exist_ok=True)
     (project_dir / "transitions").mkdir(exist_ok=True)
     (project_dir / "_uploads").mkdir(exist_ok=True)
+    LOG.debug("Directory structure created")
 
     # Create placeholder deck
     deck_slides = [
@@ -573,6 +686,7 @@ def init(
     # Write deck.json
     with open(deck_file, "w") as f:
         json.dump(deck.model_dump(), f, indent=2)
+    LOG.info("deck.json created", extra={"deck_file": str(deck_file), "slide_count": slides})
 
     # Create placeholder prompts file
     prompts_file = project_dir / "prompts.json"
@@ -585,6 +699,7 @@ def init(
     }
     with open(prompts_file, "w") as f:
         json.dump(prompts_data, f, indent=2)
+    LOG.debug("prompts.json created", extra={"prompts_file": str(prompts_file)})
 
     tree = Tree(f"[bold cyan]Project initialized[/]")
     tree.add(f"{project_dir}")
